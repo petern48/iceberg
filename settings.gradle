@@ -43,6 +43,7 @@ include 'snowflake'
 include 'delta-lake'
 include 'open-api'
 include 'mr'
+include 'dev'
 
 project(':bom').name = 'iceberg-bom'
 project(':api').name = 'iceberg-api'
@@ -69,6 +70,7 @@ project(':snowflake').name = 'iceberg-snowflake'
 project(':delta-lake').name = 'iceberg-delta-lake'
 project(':open-api').name = 'iceberg-open-api'
 project(':mr').name = 'iceberg-mr'
+project(':dev').name = 'iceberg-dev'
 
 if (null != System.getProperty("allModules")) {
   System.setProperty("flinkVersions", System.getProperty("knownFlinkVersions"))
@@ -185,6 +187,8 @@ if (sparkVersions.contains("4.1")) {
     project(":iceberg-spark:spark-extensions-4.1_2.13").name = "iceberg-spark-extensions-4.1_2.13"
     project(":iceberg-spark:spark-runtime-4.1_2.13").projectDir = file('spark/v4.1/spark-runtime')
     project(":iceberg-spark:spark-runtime-4.1_2.13").name = "iceberg-spark-runtime-4.1_2.13"
+  include "dev-spark"
+  project(":dev-spark").name = "iceberg-dev-spark"
 }
 
 if (kafkaVersions.contains("3")) {

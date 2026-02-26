@@ -1,0 +1,61 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use it except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+apply plugin: 'application'
+
+mainClassName = 'org.apache.iceberg.dev.CreateTableSpark'
+
+run {
+  jvmArgs += rootProject.ext.extraJvmArgs
+}
+
+task runReadTable(type: JavaExec) {
+  group = 'application'
+  description = 'Read Iceberg tables with Spark'
+  classpath = sourceSets.main.runtimeClasspath
+  mainClass = 'org.apache.iceberg.dev.ReadTableSpark'
+  jvmArgs += rootProject.ext.extraJvmArgs
+}
+
+String scalaVersion = '2.13'
+String sparkVersion = System.getProperty("sparkVersions") ?: System.getProperty("defaultSparkVersions")
+String sparkProject = sparkVersion.contains("4.1") ? "iceberg-spark-4.1_2.13" : "iceberg-spark-4.0_2.13"
+String sparkExtensionsProject = sparkVersion.contains("4.1") ? "iceberg-spark-extensions-4.1_2.13" : "iceberg-spark-extensions-4.0_2.13"
+String sparkLibVersion = sparkVersion.contains("4.1") ? libs.versions.spark41.get() : libs.versions.spark40.get()
+
+dependencies {
+  implementation project(path: ':iceberg-bundled-guava', configuration: 'shadow')
+  implementation project(":iceberg-spark:${sparkProject}")
+  implementation project(":iceberg-spark:${sparkExtensionsProject}")
+
+  implementation("org.apache.spark:spark-hive_${scalaVersion}:${sparkLibVersion}") {
+    exclude group: 'org.apache.avro', module: 'avro'
+    exclude group: 'org.apache.arrow'
+    exclude group: 'org.apache.parquet'
+    exclude group: 'io.netty', module: 'netty-buffer'
+    exclude group: 'io.netty', module: 'netty-common'
+    exclude group: 'org.roaringbitmap'
+  }
+
+  implementation(libs.hadoop3.client) {
+    exclude group: 'org.apache.avro', module: 'avro'
+    exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+  }
+  runtimeOnly libs.slf4j.simple
+}
