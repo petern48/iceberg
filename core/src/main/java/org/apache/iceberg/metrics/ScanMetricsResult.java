@@ -65,6 +65,15 @@ public interface ScanMetricsResult {
   CounterResult skippedDeleteManifests();
 
   @Nullable
+  CounterResult totalDataFiles();
+
+  @Nullable
+  CounterResult totalRowGroups();
+
+  @Nullable
+  CounterResult skippedRowGroups();
+
+  @Nullable
   CounterResult indexedDeleteFiles();
 
   @Nullable
@@ -96,6 +105,9 @@ public interface ScanMetricsResult {
         .skippedDeleteFiles(CounterResult.fromCounter(scanMetrics.skippedDeleteFiles()))
         .scannedDeleteManifests(CounterResult.fromCounter(scanMetrics.scannedDeleteManifests()))
         .skippedDeleteManifests(CounterResult.fromCounter(scanMetrics.skippedDeleteManifests()))
+        .totalDataFiles(CounterResult.fromCounter(scanMetrics.totalDataFiles()))
+        .totalRowGroups(CounterResult.fromCounter(scanMetrics.totalRowGroups()))
+        .skippedRowGroups(CounterResult.fromCounter(scanMetrics.skippedRowGroups()))
         .indexedDeleteFiles(CounterResult.fromCounter(scanMetrics.indexedDeleteFiles()))
         .equalityDeleteFiles(CounterResult.fromCounter(scanMetrics.equalityDeleteFiles()))
         .positionalDeleteFiles(CounterResult.fromCounter(scanMetrics.positionalDeleteFiles()))

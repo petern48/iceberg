@@ -185,6 +185,20 @@ class ReadConf<T> {
     return columnChunkMetaDataForRowGroups;
   }
 
+  int totalRowGroups() {
+    return rowGroups.size();
+  }
+
+  int skippedRowGroups() {
+    int skipped = 0;
+    for (boolean skip : shouldSkip) {
+      if (skip) {
+        skipped++;
+      }
+    }
+    return skipped;
+  }
+
   ReadConf<T> copy() {
     return new ReadConf<>(this);
   }

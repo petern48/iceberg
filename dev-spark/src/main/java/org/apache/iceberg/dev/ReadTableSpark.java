@@ -69,7 +69,7 @@ public class ReadTableSpark {
     System.out.println("Reading table: " + tableName);
 
     Dataset<Row> df = spark.table(tableName);
-    String predicate = "id > 3";
+    String predicate = "id = 99";
     Dataset<Row> filteredDf = df.filter(predicate);
     // Use collect() - count() uses a different plan (e.g. WholeStageCodegen) that doesn't populate scan metrics
     List<Row> rows = filteredDf.collectAsList();
@@ -99,8 +99,8 @@ public class ReadTableSpark {
     Map<String, SQLMetric> metrics = null;
     for (SparkPlan leaf : leaves) {
       Map<String, SQLMetric> m = mapAsJavaMapConverter(leaf.metrics()).asJava();
-      if (m.containsKey("totalDataFileSize") || m.containsKey("numRowGroupsRead")
-          || m.containsKey("resultDataFiles")) {
+      if (m.containsKey("totalDataFileSize") || m.containsKey("resultDataFiles")
+          || m.containsKey("totalRowGroups")) {
         metrics = m;
         break;
       }
@@ -111,13 +111,20 @@ public class ReadTableSpark {
 
     System.out.println("Scan metrics:");
 
-    // Metrics the user asked for: object store requests, rows read, row groups, Parquet file sizes
+    // Data file metrics
+    printMetric(metrics, "totalScanDataFiles", "Total data files");
+    printMetric(metrics, "resultDataFiles", "Result data files");
+    printMetric(metrics, "skippedDataFiles", "Skipped data files");
     printMetric(metrics, "totalDataFileSize", "Total data file size (bytes)");
-    printMetric(metrics, "numRowGroupsRead", "Row groups read");
+
+    // Row group metrics
+    printMetric(metrics, "totalRowGroups", "Total row groups");
+    printMetric(metrics, "skippedRowGroups", "Skipped row groups");
+
+    // Other metrics
     printMetric(metrics, "numSplits", "File splits read");
     printMetric(metrics, "numDeletes", "Row deletes applied");
     printMetric(metrics, "numOutputRows", "Output rows");
-    printMetric(metrics, "resultDataFiles", "Result data files");
   }
 
   private static void printMetric(

@@ -137,7 +137,9 @@ public class SparkDistributedDataScan extends BaseDistributedDataScan {
     List<List<DataFile>> dataFileGroups = collectPartitions(dataFileRDD);
 
     int matchingFilesCount = dataFileGroups.stream().mapToInt(List::size).sum();
-    int skippedFilesCount = liveFilesCount(dataManifests) - matchingFilesCount;
+    int totalFilesCount = liveFilesCount(dataManifests);
+    int skippedFilesCount = totalFilesCount - matchingFilesCount;
+    scanMetrics().totalDataFiles().increment(totalFilesCount);
     scanMetrics().skippedDataFiles().increment(skippedFilesCount);
 
     return Iterables.transform(dataFileGroups, CloseableIterable::withNoopClose);

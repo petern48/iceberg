@@ -327,6 +327,9 @@ class ManifestGroup {
                   entries = reader.entries();
                 }
 
+                // Count total data files before filtering
+                entries = CloseableIterable.count(scanMetrics.totalDataFiles(), entries);
+
                 if (ignoreExisting) {
                   entries =
                       CloseableIterable.filter(

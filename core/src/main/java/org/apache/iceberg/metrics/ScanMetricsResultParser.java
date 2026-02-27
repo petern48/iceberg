@@ -106,6 +106,21 @@ class ScanMetricsResultParser {
       CounterResultParser.toJson(metrics.skippedDeleteManifests(), gen);
     }
 
+    if (null != metrics.totalDataFiles()) {
+      gen.writeFieldName(ScanMetrics.TOTAL_DATA_FILES);
+      CounterResultParser.toJson(metrics.totalDataFiles(), gen);
+    }
+
+    if (null != metrics.totalRowGroups()) {
+      gen.writeFieldName(ScanMetrics.TOTAL_ROW_GROUPS);
+      CounterResultParser.toJson(metrics.totalRowGroups(), gen);
+    }
+
+    if (null != metrics.skippedRowGroups()) {
+      gen.writeFieldName(ScanMetrics.SKIPPED_ROW_GROUPS);
+      CounterResultParser.toJson(metrics.skippedRowGroups(), gen);
+    }
+
     if (null != metrics.indexedDeleteFiles()) {
       gen.writeFieldName(ScanMetrics.INDEXED_DELETE_FILES);
       CounterResultParser.toJson(metrics.indexedDeleteFiles(), gen);
@@ -160,6 +175,9 @@ class ScanMetricsResultParser {
             CounterResultParser.fromJson(ScanMetrics.SCANNED_DELETE_MANIFESTS, json))
         .skippedDeleteManifests(
             CounterResultParser.fromJson(ScanMetrics.SKIPPED_DELETE_MANIFESTS, json))
+        .totalDataFiles(CounterResultParser.fromJson(ScanMetrics.TOTAL_DATA_FILES, json))
+        .totalRowGroups(CounterResultParser.fromJson(ScanMetrics.TOTAL_ROW_GROUPS, json))
+        .skippedRowGroups(CounterResultParser.fromJson(ScanMetrics.SKIPPED_ROW_GROUPS, json))
         .indexedDeleteFiles(CounterResultParser.fromJson(ScanMetrics.INDEXED_DELETE_FILES, json))
         .equalityDeleteFiles(CounterResultParser.fromJson(ScanMetrics.EQUALITY_DELETE_FILES, json))
         .positionalDeleteFiles(

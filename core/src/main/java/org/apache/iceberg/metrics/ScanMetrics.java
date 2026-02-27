@@ -37,6 +37,9 @@ public abstract class ScanMetrics {
   public static final String SKIPPED_DELETE_MANIFESTS = "skipped-delete-manifests";
   public static final String SKIPPED_DATA_FILES = "skipped-data-files";
   public static final String SKIPPED_DELETE_FILES = "skipped-delete-files";
+  public static final String TOTAL_DATA_FILES = "total-data-files";
+  public static final String TOTAL_ROW_GROUPS = "total-row-groups";
+  public static final String SKIPPED_ROW_GROUPS = "skipped-row-groups";
   public static final String INDEXED_DELETE_FILES = "indexed-delete-files";
   public static final String EQUALITY_DELETE_FILES = "equality-delete-files";
   public static final String POSITIONAL_DELETE_FILES = "positional-delete-files";
@@ -111,6 +114,21 @@ public abstract class ScanMetrics {
   @Value.Derived
   public Counter skippedDeleteManifests() {
     return metricsContext().counter(SKIPPED_DELETE_MANIFESTS);
+  }
+
+  @Value.Derived
+  public Counter totalDataFiles() {
+    return metricsContext().counter(TOTAL_DATA_FILES);
+  }
+
+  @Value.Derived
+  public Counter totalRowGroups() {
+    return metricsContext().counter(TOTAL_ROW_GROUPS);
+  }
+
+  @Value.Derived
+  public Counter skippedRowGroups() {
+    return metricsContext().counter(SKIPPED_ROW_GROUPS);
   }
 
   @Value.Derived

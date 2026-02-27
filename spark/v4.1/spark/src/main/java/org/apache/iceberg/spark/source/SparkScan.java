@@ -54,6 +54,7 @@ import org.apache.iceberg.spark.source.metrics.SkippedDataFiles;
 import org.apache.iceberg.spark.source.metrics.SkippedDataManifests;
 import org.apache.iceberg.spark.source.metrics.SkippedDeleteFiles;
 import org.apache.iceberg.spark.source.metrics.SkippedDeleteManifests;
+import org.apache.iceberg.spark.source.metrics.SkippedRowGroups;
 import org.apache.iceberg.spark.source.metrics.TaskEqualityDeleteFiles;
 import org.apache.iceberg.spark.source.metrics.TaskIndexedDeleteFiles;
 import org.apache.iceberg.spark.source.metrics.TaskPositionalDeleteFiles;
@@ -65,16 +66,21 @@ import org.apache.iceberg.spark.source.metrics.TaskSkippedDataFiles;
 import org.apache.iceberg.spark.source.metrics.TaskSkippedDataManifests;
 import org.apache.iceberg.spark.source.metrics.TaskSkippedDeleteFiles;
 import org.apache.iceberg.spark.source.metrics.TaskSkippedDeleteManifests;
+import org.apache.iceberg.spark.source.metrics.TaskSkippedRowGroups;
 import org.apache.iceberg.spark.source.metrics.TaskTotalDataFileSize;
 import org.apache.iceberg.spark.source.metrics.TaskTotalDataManifests;
 import org.apache.iceberg.spark.source.metrics.TaskTotalDeleteFileSize;
 import org.apache.iceberg.spark.source.metrics.TaskTotalDeleteManifests;
 import org.apache.iceberg.spark.source.metrics.TaskTotalPlanningDuration;
+import org.apache.iceberg.spark.source.metrics.TaskTotalRowGroups;
+import org.apache.iceberg.spark.source.metrics.TaskTotalScanDataFiles;
 import org.apache.iceberg.spark.source.metrics.TotalDataFileSize;
 import org.apache.iceberg.spark.source.metrics.TotalDataManifests;
 import org.apache.iceberg.spark.source.metrics.TotalDeleteFileSize;
 import org.apache.iceberg.spark.source.metrics.TotalDeleteManifests;
 import org.apache.iceberg.spark.source.metrics.TotalPlanningDuration;
+import org.apache.iceberg.spark.source.metrics.TotalRowGroups;
+import org.apache.iceberg.spark.source.metrics.TotalScanDataFiles;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.PropertyUtil;
 import org.apache.iceberg.util.SnapshotUtil;
@@ -291,6 +297,11 @@ abstract class SparkScan implements Scan, SupportsReportStatistics {
     driverMetrics.add(TaskResultDataFiles.from(scanReport));
     driverMetrics.add(TaskSkippedDataFiles.from(scanReport));
     driverMetrics.add(TaskTotalDataFileSize.from(scanReport));
+    driverMetrics.add(TaskTotalScanDataFiles.from(scanReport));
+
+    // row groups
+    driverMetrics.add(TaskTotalRowGroups.from(scanReport));
+    driverMetrics.add(TaskSkippedRowGroups.from(scanReport));
 
     // delete manifests
     driverMetrics.add(TaskTotalDeleteManifests.from(scanReport));
@@ -327,6 +338,11 @@ abstract class SparkScan implements Scan, SupportsReportStatistics {
       new ResultDataFiles(),
       new SkippedDataFiles(),
       new TotalDataFileSize(),
+      new TotalScanDataFiles(),
+
+      // row groups
+      new TotalRowGroups(),
+      new SkippedRowGroups(),
 
       // delete manifests
       new TotalDeleteManifests(),

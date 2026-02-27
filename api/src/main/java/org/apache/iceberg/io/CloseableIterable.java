@@ -164,6 +164,39 @@ public interface CloseableIterable<T> extends Iterable<T>, Closeable {
   }
 
   /**
+   * Filters the given {@link CloseableIterable} and counts both total elements and skipped elements.
+   *
+   * @param totalCounter The {@link Counter} instance to increment on each item during filtering.
+   * @param skipCounter The {@link Counter} instance to increment on each skipped item during
+   *     filtering.
+   * @param iterable The underlying {@link CloseableIterable} to filter.
+   * @param pred The predicate to test elements.
+   * @param <E> The underlying type to be iterated.
+   * @return A filtered {@link CloseableIterable} where counters are incremented appropriately.
+   */
+  static <E> CloseableIterable<E> filter(
+      Counter totalCounter, Counter skipCounter, CloseableIterable<E> iterable, Predicate<E> pred) {
+    Preconditions.checkArgument(null != totalCounter, "Invalid total counter: null");
+    Preconditions.checkArgument(null != skipCounter, "Invalid skip counter: null");
+    Preconditions.checkArgument(null != iterable, "Invalid iterable: null");
+    Preconditions.checkArgument(null != pred, "Invalid predicate: null");
+    return combine(
+        () ->
+            new FilterIterator<E>(iterable.iterator()) {
+              @Override
+              protected boolean shouldKeep(E item) {
+                totalCounter.increment();
+                boolean matches = pred.test(item);
+                if (!matches) {
+                  skipCounter.increment();
+                }
+                return matches;
+              }
+            },
+        iterable);
+  }
+
+  /**
    * Counts the number of elements in the given {@link CloseableIterable} by incrementing the {@link
    * Counter} instance for each {@link Iterator#next()} call.
    *
