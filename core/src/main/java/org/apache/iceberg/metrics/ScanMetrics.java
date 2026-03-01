@@ -46,6 +46,8 @@ public abstract class ScanMetrics {
   public static final String DVS = "dvs";
   public static final String PUFFIN_FILES_READ = "puffin-files-read";
   public static final String PUFFIN_READ_DURATION = "puffin-read-duration";
+  public static final String MANIFEST_FILES_READ = "manifest-files-read";
+  public static final String MANIFEST_READ_DURATION = "manifest-read-duration";
 
   public static ScanMetrics noop() {
     return ScanMetrics.of(MetricsContext.nullMetrics());
@@ -161,6 +163,16 @@ public abstract class ScanMetrics {
   @Value.Derived
   public Timer puffinReadDuration() {
     return metricsContext().timer(PUFFIN_READ_DURATION, TimeUnit.NANOSECONDS);
+  }
+
+  @Value.Derived
+  public Counter manifestFilesRead() {
+    return metricsContext().counter(MANIFEST_FILES_READ);
+  }
+
+  @Value.Derived
+  public Timer manifestReadDuration() {
+    return metricsContext().timer(MANIFEST_READ_DURATION, TimeUnit.NANOSECONDS);
   }
 
   public static ScanMetrics of(MetricsContext metricsContext) {

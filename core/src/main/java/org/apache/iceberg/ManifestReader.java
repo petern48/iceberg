@@ -38,6 +38,7 @@ import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.metrics.ScanMetrics;
+import org.apache.iceberg.metrics.Timer;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableSet;
@@ -283,14 +284,21 @@ public class ManifestReader<F extends ContentFile<F>> extends CloseableGroup
     }
     fields.add(MetadataColumns.ROW_POSITION);
 
-    CloseableIterable<ManifestEntry<F>> reader =
-        InternalData.read(format, file)
-            .project(ManifestEntry.wrapFileSchema(Types.StructType.of(fields)))
-            .setRootType(GenericManifestEntry.class)
-            .setCustomType(ManifestEntry.DATA_FILE_ID, content.fileClass())
-            .setCustomType(DataFile.PARTITION_ID, PartitionData.class)
-            .reuseContainers()
-            .build();
+    scanMetrics.manifestFilesRead().increment();
+    Timer.Timed manifestTimer = scanMetrics.manifestReadDuration().start();
+    CloseableIterable<ManifestEntry<F>> reader;
+    try {
+      reader =
+          InternalData.read(format, file)
+              .project(ManifestEntry.wrapFileSchema(Types.StructType.of(fields)))
+              .setRootType(GenericManifestEntry.class)
+              .setCustomType(ManifestEntry.DATA_FILE_ID, content.fileClass())
+              .setCustomType(DataFile.PARTITION_ID, PartitionData.class)
+              .reuseContainers()
+              .build();
+    } finally {
+      manifestTimer.stop();
+    }
 
     addCloseable(reader);
 

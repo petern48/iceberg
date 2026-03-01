@@ -151,6 +151,16 @@ class ScanMetricsResultParser {
       TimerResultParser.toJson(metrics.puffinReadDuration(), gen);
     }
 
+    if (null != metrics.manifestFilesRead()) {
+      gen.writeFieldName(ScanMetrics.MANIFEST_FILES_READ);
+      CounterResultParser.toJson(metrics.manifestFilesRead(), gen);
+    }
+
+    if (null != metrics.manifestReadDuration()) {
+      gen.writeFieldName(ScanMetrics.MANIFEST_READ_DURATION);
+      TimerResultParser.toJson(metrics.manifestReadDuration(), gen);
+    }
+
     gen.writeEndObject();
   }
 
@@ -195,6 +205,8 @@ class ScanMetricsResultParser {
         .dvs(CounterResultParser.fromJson(ScanMetrics.DVS, json))
         .puffinFilesRead(CounterResultParser.fromJson(ScanMetrics.PUFFIN_FILES_READ, json))
         .puffinReadDuration(TimerResultParser.fromJson(ScanMetrics.PUFFIN_READ_DURATION, json))
+        .manifestFilesRead(CounterResultParser.fromJson(ScanMetrics.MANIFEST_FILES_READ, json))
+        .manifestReadDuration(TimerResultParser.fromJson(ScanMetrics.MANIFEST_READ_DURATION, json))
         .build();
   }
 }
