@@ -44,7 +44,12 @@ import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.ExpressionUtil;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.Projections;
+import org.apache.iceberg.metrics.CounterResult;
+import org.apache.iceberg.metrics.DefaultMetricsContext;
+import org.apache.iceberg.metrics.ScanMetrics;
+import org.apache.iceberg.metrics.ScanMetricsResult;
 import org.apache.iceberg.metrics.ScanReport;
+import org.apache.iceberg.metrics.TimerResult;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 import org.apache.iceberg.relocated.com.google.common.collect.Sets;
@@ -52,12 +57,18 @@ import org.apache.iceberg.spark.Spark3Util;
 import org.apache.iceberg.spark.SparkReadConf;
 import org.apache.iceberg.spark.SparkSchemaUtil;
 import org.apache.iceberg.spark.SparkV2Filters;
+import org.apache.iceberg.spark.source.metrics.PuffinFilesRead;
+import org.apache.iceberg.spark.source.metrics.PuffinReadDuration;
+import org.apache.iceberg.spark.source.metrics.TaskPuffinFilesRead;
+import org.apache.iceberg.spark.source.metrics.TaskPuffinReadDuration;
 import org.apache.iceberg.util.ContentFileUtil;
 import org.apache.iceberg.util.DeleteFileSet;
 import org.apache.iceberg.util.SnapshotUtil;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.connector.expressions.NamedReference;
 import org.apache.spark.sql.connector.expressions.filter.Predicate;
+import org.apache.spark.sql.connector.metric.CustomMetric;
+import org.apache.spark.sql.connector.metric.CustomTaskMetric;
 import org.apache.spark.sql.connector.read.Statistics;
 import org.apache.spark.sql.connector.read.SupportsRuntimeV2Filtering;
 import org.slf4j.Logger;
@@ -74,6 +85,7 @@ class SparkBatchQueryScan extends SparkPartitioningAwareScan<PartitionScanTask>
   private final Long asOfTimestamp;
   private final String tag;
   private final List<Expression> runtimeFilterExpressions;
+  private final ScanMetrics puffinScanMetrics = ScanMetrics.of(new DefaultMetricsContext());
 
   SparkBatchQueryScan(
       SparkSession spark,
@@ -174,7 +186,8 @@ class SparkBatchQueryScan extends SparkPartitioningAwareScan<PartitionScanTask>
     }
 
     FileBloomFilterEvaluator evaluator =
-        FileBloomFilterEvaluator.create(table(), snapshot, filter, caseSensitive());
+        FileBloomFilterEvaluator.create(table(), snapshot, filter, caseSensitive(),
+            puffinScanMetrics);
     if (evaluator == null) {
       return plannedTasks;
     }
@@ -325,5 +338,31 @@ class SparkBatchQueryScan extends SparkPartitioningAwareScan<PartitionScanTask>
 
   private String runtimeFiltersDesc() {
     return Spark3Util.describe(runtimeFilterExpressions);
+  }
+
+  @Override
+  public CustomTaskMetric[] reportDriverMetrics() {
+    CustomTaskMetric[] base = super.reportDriverMetrics();
+    List<CustomTaskMetric> all = Lists.newArrayList(base);
+
+    ScanMetricsResult puffinMetrics = ScanMetricsResult.fromScanMetrics(puffinScanMetrics);
+
+    CounterResult filesRead = puffinMetrics.puffinFilesRead();
+    all.add(new TaskPuffinFilesRead(filesRead != null ? filesRead.value() : 0L));
+
+    TimerResult readDuration = puffinMetrics.puffinReadDuration();
+    all.add(new TaskPuffinReadDuration(
+        readDuration != null ? readDuration.totalDuration().toMillis() : -1L));
+
+    return all.toArray(new CustomTaskMetric[0]);
+  }
+
+  @Override
+  public CustomMetric[] supportedCustomMetrics() {
+    CustomMetric[] base = super.supportedCustomMetrics();
+    List<CustomMetric> all = Lists.newArrayList(base);
+    all.add(new PuffinFilesRead());
+    all.add(new PuffinReadDuration());
+    return all.toArray(new CustomMetric[0]);
   }
 }

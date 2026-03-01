@@ -197,10 +197,15 @@ public class TestScanMetricsResultParser {
                     + "\"skipped-delete-files\":{\"unit\":\"count\",\"value\":3},"
                     + "\"scanned-delete-manifests\":{\"unit\":\"count\",\"value\":3},"
                     + "\"skipped-delete-manifests\":{\"unit\":\"count\",\"value\":3},"
+                    + "\"total-data-files\":{\"unit\":\"count\",\"value\":0},"
+                    + "\"total-row-groups\":{\"unit\":\"count\",\"value\":0},"
+                    + "\"skipped-row-groups\":{\"unit\":\"count\",\"value\":0},"
                     + "\"indexed-delete-files\":{\"unit\":\"count\",\"value\":10},"
                     + "\"equality-delete-files\":{\"unit\":\"count\",\"value\":4},"
                     + "\"positional-delete-files\":{\"unit\":\"count\",\"value\":6},"
                     + "\"dvs\":{\"unit\":\"count\",\"value\":1},"
+                    + "\"puffin-files-read\":{\"unit\":\"count\",\"value\":0},"
+                    + "\"puffin-read-duration\":{\"count\":0,\"time-unit\":\"nanoseconds\",\"total-duration\":0},"
                     + "\"extra\": \"value\",\"extra2\":23}"))
         .isEqualTo(scanMetricsResult);
   }
@@ -304,6 +309,18 @@ public class TestScanMetricsResultParser {
             + "    \"unit\" : \"count\",\n"
             + "    \"value\" : 3\n"
             + "  },\n"
+            + "  \"total-data-files\" : {\n"
+            + "    \"unit\" : \"count\",\n"
+            + "    \"value\" : 0\n"
+            + "  },\n"
+            + "  \"total-row-groups\" : {\n"
+            + "    \"unit\" : \"count\",\n"
+            + "    \"value\" : 0\n"
+            + "  },\n"
+            + "  \"skipped-row-groups\" : {\n"
+            + "    \"unit\" : \"count\",\n"
+            + "    \"value\" : 0\n"
+            + "  },\n"
             + "  \"indexed-delete-files\" : {\n"
             + "    \"unit\" : \"count\",\n"
             + "    \"value\" : 10\n"
@@ -319,6 +336,15 @@ public class TestScanMetricsResultParser {
             + "  \"dvs\" : {\n"
             + "    \"unit\" : \"count\",\n"
             + "    \"value\" : 3\n"
+            + "  },\n"
+            + "  \"puffin-files-read\" : {\n"
+            + "    \"unit\" : \"count\",\n"
+            + "    \"value\" : 0\n"
+            + "  },\n"
+            + "  \"puffin-read-duration\" : {\n"
+            + "    \"count\" : 0,\n"
+            + "    \"time-unit\" : \"nanoseconds\",\n"
+            + "    \"total-duration\" : 0\n"
             + "  }\n"
             + "}";
 
@@ -336,5 +362,65 @@ public class TestScanMetricsResultParser {
     assertThat(json).isEqualTo(expectedJson);
     assertThat(ScanMetricsResultParser.fromJson(json))
         .isEqualTo(ImmutableScanMetricsResult.builder().build());
+  }
+
+  @Test
+  public void puffinFilesReadRoundTrip() {
+    ScanMetrics scanMetrics = ScanMetrics.of(new DefaultMetricsContext());
+    scanMetrics.puffinFilesRead().increment(3L);
+
+    ScanMetricsResult result = ScanMetricsResult.fromScanMetrics(scanMetrics);
+
+    assertThat(result.puffinFilesRead()).isNotNull();
+    assertThat(result.puffinFilesRead().value()).isEqualTo(3L);
+
+    String json = ScanMetricsResultParser.toJson(result);
+    ScanMetricsResult parsed = ScanMetricsResultParser.fromJson(json);
+    assertThat(parsed.puffinFilesRead()).isNotNull();
+    assertThat(parsed.puffinFilesRead().value()).isEqualTo(3L);
+  }
+
+  @Test
+  public void puffinReadDurationRoundTrip() {
+    ScanMetrics scanMetrics = ScanMetrics.of(new DefaultMetricsContext());
+    scanMetrics.puffinReadDuration().record(500, TimeUnit.MILLISECONDS);
+
+    ScanMetricsResult result = ScanMetricsResult.fromScanMetrics(scanMetrics);
+
+    assertThat(result.puffinReadDuration()).isNotNull();
+    assertThat(result.puffinReadDuration().count()).isEqualTo(1L);
+    assertThat(result.puffinReadDuration().totalDuration().toMillis()).isEqualTo(500L);
+
+    String json = ScanMetricsResultParser.toJson(result);
+    ScanMetricsResult parsed = ScanMetricsResultParser.fromJson(json);
+    assertThat(parsed.puffinReadDuration()).isNotNull();
+    assertThat(parsed.puffinReadDuration().count()).isEqualTo(1L);
+    assertThat(parsed.puffinReadDuration().totalDuration().toMillis()).isEqualTo(500L);
+  }
+
+  @Test
+  public void puffinMetricsAbsentFromNoopMetrics() {
+    ScanMetricsResult result = ScanMetricsResult.fromScanMetrics(ScanMetrics.noop());
+
+    assertThat(result.puffinFilesRead()).isNull();
+    assertThat(result.puffinReadDuration()).isNull();
+
+    String json = ScanMetricsResultParser.toJson(result);
+    assertThat(json).doesNotContain(ScanMetrics.PUFFIN_FILES_READ);
+    assertThat(json).doesNotContain(ScanMetrics.PUFFIN_READ_DURATION);
+  }
+
+  @Test
+  public void puffinMetricsFromJson() {
+    ScanMetricsResult result =
+        ScanMetricsResultParser.fromJson(
+            "{\"puffin-files-read\":{\"unit\":\"count\",\"value\":2},"
+                + "\"puffin-read-duration\":{\"count\":1,\"time-unit\":\"nanoseconds\","
+                + "\"total-duration\":1000000}}");
+
+    assertThat(result.puffinFilesRead()).isNotNull();
+    assertThat(result.puffinFilesRead().value()).isEqualTo(2L);
+    assertThat(result.puffinReadDuration()).isNotNull();
+    assertThat(result.puffinReadDuration().totalDuration().toNanos()).isEqualTo(1_000_000L);
   }
 }

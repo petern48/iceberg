@@ -41,6 +41,8 @@ import org.apache.iceberg.puffin.BlobMetadata;
 import org.apache.iceberg.puffin.Puffin;
 import org.apache.iceberg.puffin.PuffinReader;
 import org.apache.iceberg.puffin.StandardBlobTypes;
+import org.apache.iceberg.metrics.ScanMetrics;
+import org.apache.iceberg.metrics.Timer;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.Maps;
 import org.apache.iceberg.types.Conversions;
@@ -79,7 +81,8 @@ public class FileBloomFilterEvaluator {
    * should treat as "might contain" for all files).
    */
   public static FileBloomFilterEvaluator create(
-      Table table, Snapshot snapshot, Expression filter, boolean caseSensitive) {
+      Table table, Snapshot snapshot, Expression filter, boolean caseSensitive,
+      ScanMetrics scanMetrics) {
     // Find the statistics file for this snapshot
     StatisticsFile statsFile = null;
     for (StatisticsFile sf : table.statisticsFiles()) {
@@ -112,6 +115,8 @@ public class FileBloomFilterEvaluator {
     // Open the Puffin file and load file-level bloom filter blobs for referenced fields.
     // File-level blobs are distinguished by the presence of the "data-file-path" property.
     Map<String, Map<Integer, BloomFilter>> bloomFiltersByFilePath = Maps.newHashMap();
+    scanMetrics.puffinFilesRead().increment();
+    Timer.Timed puffinTimer = scanMetrics.puffinReadDuration().start();
     try (PuffinReader reader =
         Puffin.read(table.io().newInputFile(statsFile.path()))
             .withFileSize(statsFile.fileSizeInBytes())
@@ -146,6 +151,8 @@ public class FileBloomFilterEvaluator {
       LOG.warn(
           "Failed to read bloom filter statistics from {}: {}", statsFile.path(), e.getMessage());
       return null;
+    } finally {
+      puffinTimer.stop();
     }
 
     if (bloomFiltersByFilePath.isEmpty()) {

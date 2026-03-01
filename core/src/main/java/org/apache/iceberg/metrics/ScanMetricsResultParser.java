@@ -141,6 +141,16 @@ class ScanMetricsResultParser {
       CounterResultParser.toJson(metrics.dvs(), gen);
     }
 
+    if (null != metrics.puffinFilesRead()) {
+      gen.writeFieldName(ScanMetrics.PUFFIN_FILES_READ);
+      CounterResultParser.toJson(metrics.puffinFilesRead(), gen);
+    }
+
+    if (null != metrics.puffinReadDuration()) {
+      gen.writeFieldName(ScanMetrics.PUFFIN_READ_DURATION);
+      TimerResultParser.toJson(metrics.puffinReadDuration(), gen);
+    }
+
     gen.writeEndObject();
   }
 
@@ -183,6 +193,8 @@ class ScanMetricsResultParser {
         .positionalDeleteFiles(
             CounterResultParser.fromJson(ScanMetrics.POSITIONAL_DELETE_FILES, json))
         .dvs(CounterResultParser.fromJson(ScanMetrics.DVS, json))
+        .puffinFilesRead(CounterResultParser.fromJson(ScanMetrics.PUFFIN_FILES_READ, json))
+        .puffinReadDuration(TimerResultParser.fromJson(ScanMetrics.PUFFIN_READ_DURATION, json))
         .build();
   }
 }

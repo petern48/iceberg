@@ -88,6 +88,18 @@ public interface ScanMetricsResult {
     return null;
   }
 
+  @Nullable
+  @Value.Default
+  default CounterResult puffinFilesRead() {
+    return null;
+  }
+
+  @Nullable
+  @Value.Default
+  default TimerResult puffinReadDuration() {
+    return null;
+  }
+
   static ScanMetricsResult fromScanMetrics(ScanMetrics scanMetrics) {
     Preconditions.checkArgument(null != scanMetrics, "Invalid scan metrics: null");
     return ImmutableScanMetricsResult.builder()
@@ -112,6 +124,8 @@ public interface ScanMetricsResult {
         .equalityDeleteFiles(CounterResult.fromCounter(scanMetrics.equalityDeleteFiles()))
         .positionalDeleteFiles(CounterResult.fromCounter(scanMetrics.positionalDeleteFiles()))
         .dvs(CounterResult.fromCounter(scanMetrics.dvs()))
+        .puffinFilesRead(CounterResult.fromCounter(scanMetrics.puffinFilesRead()))
+        .puffinReadDuration(TimerResult.fromTimer(scanMetrics.puffinReadDuration()))
         .build();
   }
 }
