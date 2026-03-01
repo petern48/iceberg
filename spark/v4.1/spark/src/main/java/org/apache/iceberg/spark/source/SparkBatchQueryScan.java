@@ -26,6 +26,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileContent;
+import org.apache.iceberg.spark.FileBloomFilterEvaluator;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionScanTask;
@@ -161,6 +162,40 @@ class SparkBatchQueryScan extends SparkPartitioningAwareScan<PartitionScanTask>
       // save the evaluated filter for equals/hashCode
       runtimeFilterExpressions.add(runtimeFilterExpr);
     }
+  }
+
+  @Override
+  protected List<PartitionScanTask> planFilesFilter(List<PartitionScanTask> plannedTasks) {
+    Expression filter = filter();
+    Snapshot snapshot = resolvedScanSnapshot();
+
+    if (snapshot == null || filter == Expressions.alwaysTrue()) {
+      return plannedTasks;
+    }
+
+    FileBloomFilterEvaluator evaluator =
+        FileBloomFilterEvaluator.create(table(), snapshot, filter, caseSensitive());
+    if (evaluator == null) {
+      return plannedTasks;
+    }
+
+    List<PartitionScanTask> filtered =
+        plannedTasks.stream()
+            .filter(
+                task ->
+                    !task.isFileScanTask()
+                        || evaluator.fileMightContain(task.asFileScanTask().file().location()))
+            .collect(Collectors.toList());
+
+    if (filtered.size() < plannedTasks.size()) {
+      LOG.info(
+          "File bloom filter pruned {}/{} file(s) for table {}",
+          plannedTasks.size() - filtered.size(),
+          plannedTasks.size(),
+          table().name());
+    }
+
+    return filtered;
   }
 
   protected Map<String, DeleteFileSet> rewritableDeletes(boolean forDVs) {

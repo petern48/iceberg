@@ -33,6 +33,7 @@ import org.apache.iceberg.relocated.com.google.common.collect.ImmutableList;
 import org.apache.iceberg.relocated.com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.apache.iceberg.relocated.com.google.common.collect.Maps;
+import org.apache.iceberg.spark.FileBloomFilterEvaluator;
 import org.apache.iceberg.spark.SparkTableUtil;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.PropertyUtil;
@@ -54,7 +55,7 @@ import org.apache.spark.sql.stats.BloomFilterAgg;
  */
 class FileBloomFilterUtil {
 
-  static final String DATA_FILE_PATH_PROPERTY = "data-file-path";
+  static final String DATA_FILE_PATH_PROPERTY = FileBloomFilterEvaluator.DATA_FILE_PATH_PROPERTY;
   static final String BLOOM_FILTER_FPP_PROPERTY = "fpp";
 
   static final long DEFAULT_NDV = 1_000_000L;

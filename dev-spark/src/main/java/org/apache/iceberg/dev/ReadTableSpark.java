@@ -31,7 +31,8 @@ import org.apache.spark.sql.execution.SparkPlan;
 import org.apache.spark.sql.execution.metric.SQLMetric;
 
 /**
- * Reads Iceberg tables locally using Spark with a Hadoop catalog.
+ * Reads Iceberg tables locally using Spark with a Hadoop catalog and demonstrates file-level bloom
+ * filter pruning.
  *
  * <p>Run with: ./gradlew :iceberg-dev-spark:runReadTable
  *
@@ -57,45 +58,57 @@ public class ReadTableSpark {
         SparkSession.builder()
             .appName("ReadTableSpark")
             .master("local[2]")
-            .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
+            .config(
+                "spark.sql.extensions",
+                "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
             .config("spark.sql.catalog.local", "org.apache.iceberg.spark.SparkCatalog")
             .config("spark.sql.catalog.local.type", "hadoop")
             .config("spark.sql.catalog.local.warehouse", warehouse)
             .getOrCreate();
 
-    // To avoid the verbose INFO logs
     spark.sparkContext().setLogLevel("WARN");
 
     System.out.println("Reading table: " + tableName);
+    System.out.println();
 
-    Dataset<Row> df = spark.table(tableName);
-    String predicate = "id = 99";
-    Dataset<Row> filteredDf = df.filter(predicate);
-    // Use collect() - count() uses a different plan (e.g. WholeStageCodegen) that doesn't populate scan metrics
-    List<Row> rows = filteredDf.collectAsList();
-    System.out.println("\nRow count: " + rows.size());
+    // Query 1: id = 99 — value exists in exactly one file; bloom filter keeps that file,
+    // prunes the other 9.
+    runQuery(spark, tableName, "id = 99", "value exists in one file (expect ~1 file kept)");
 
-    // Pass the DataFrame that was actually executed so metrics are populated
-    printScanMetrics(filteredDf);
+    // Query 2: id = 9999 — value absent from all files; bloom filter prunes all 10 files.
+    runQuery(spark, tableName, "id = 9999", "value absent from all files (expect 0 files)");
 
-    System.out.println("Schema:");
-    df.printSchema();
-
-    System.out.println("Sample (first 10 rows):");
-    filteredDf.show(10, false);
+    // Query 3: id IN (1, 100) — values spread across two different files; bloom filter keeps
+    // those two files, prunes the remaining 8.
+    runQuery(
+        spark, tableName, "id IN (1, 100)", "values in two different files (expect ~2 files kept)");
 
     spark.stop();
+  }
+
+  private static void runQuery(
+      SparkSession spark, String tableName, String predicate, String description) {
+    System.out.println("=== Query: " + predicate + " ===");
+    System.out.println("    " + description);
+
+    Dataset<Row> df = spark.table(tableName).filter(predicate);
+    // Use collectAsList() — count() uses a different plan that doesn't populate scan metrics.
+    List<Row> rows = df.collectAsList();
+    System.out.println("  Row count: " + rows.size());
+
+    printScanMetrics(df);
+    System.out.println();
   }
 
   private static void printScanMetrics(Dataset<Row> df) {
     SparkPlan plan = df.queryExecution().executedPlan();
     List<SparkPlan> leaves = seqAsJavaListConverter(plan.collectLeaves()).asJava();
     if (leaves.isEmpty()) {
-      System.out.println("Metrics: (no scan in plan)");
+      System.out.println("  Metrics: (no scan in plan)");
       return;
     }
 
-    // Find leaf with Iceberg metrics (BatchScan)
+    // Find the leaf node that carries Iceberg scan metrics.
     Map<String, SQLMetric> metrics = null;
     for (SparkPlan leaf : leaves) {
       Map<String, SQLMetric> m = mapAsJavaMapConverter(leaf.metrics()).asJava();
@@ -109,21 +122,13 @@ public class ReadTableSpark {
       metrics = mapAsJavaMapConverter(leaves.get(0).metrics()).asJava();
     }
 
-    System.out.println("Scan metrics:");
-
-    // Data file metrics
+    System.out.println("  Scan metrics:");
     printMetric(metrics, "totalScanDataFiles", "Total data files");
-    printMetric(metrics, "resultDataFiles", "Result data files");
+    printMetric(metrics, "resultDataFiles", "Result data files (after bloom filter pruning)");
     printMetric(metrics, "skippedDataFiles", "Skipped data files");
-    printMetric(metrics, "totalDataFileSize", "Total data file size (bytes)");
-
-    // Row group metrics
     printMetric(metrics, "totalRowGroups", "Total row groups");
     printMetric(metrics, "skippedRowGroups", "Skipped row groups");
-
-    // Other metrics
     printMetric(metrics, "numSplits", "File splits read");
-    printMetric(metrics, "numDeletes", "Row deletes applied");
     printMetric(metrics, "numOutputRows", "Output rows");
   }
 
@@ -131,7 +136,7 @@ public class ReadTableSpark {
       Map<String, SQLMetric> metrics, String name, String description) {
     SQLMetric m = metrics.get(name);
     if (m != null) {
-      System.out.println("  " + description + ": " + m.value());
+      System.out.println("    " + description + ": " + m.value());
     }
   }
 }

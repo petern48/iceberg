@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.iceberg.BatchScan;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionScanTask;
 import org.apache.iceberg.PartitionSpec;
@@ -34,6 +35,7 @@ import org.apache.iceberg.Scan;
 import org.apache.iceberg.ScanTask;
 import org.apache.iceberg.ScanTaskGroup;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.expressions.Expression;
@@ -95,6 +97,24 @@ abstract class SparkPartitioningAwareScan<T extends PartitionScanTask> extends S
 
   protected Scan<?, ? extends ScanTask, ? extends ScanTaskGroup<?>> scan() {
     return scan;
+  }
+
+  /**
+   * Returns the snapshot that the underlying scan will read, by delegating to {@link
+   * BatchScan#snapshot()}. Returns {@code null} if the scan is not a {@link BatchScan} (e.g.,
+   * incremental or change-data scans).
+   */
+  protected Snapshot resolvedScanSnapshot() {
+    Scan<?, ?, ?> s = scan();
+    return s instanceof BatchScan ? ((BatchScan) s).snapshot() : null;
+  }
+
+  /**
+   * Hook for subclasses to prune the planned task list before it is cached. The default
+   * implementation returns the list unchanged.
+   */
+  protected List<T> planFilesFilter(List<T> plannedTasks) {
+    return plannedTasks;
   }
 
   @Override
@@ -185,7 +205,7 @@ abstract class SparkPartitioningAwareScan<T extends PartitionScanTask> extends S
           plannedTasks.add(taskJavaClass().cast(task));
         }
 
-        this.tasks = plannedTasks;
+        this.tasks = planFilesFilter(plannedTasks);
       } catch (IOException e) {
         throw new UncheckedIOException("Failed to close scan: " + scan, e);
       }
