@@ -46,6 +46,8 @@ public abstract class ScanMetrics {
   public static final String EQUALITY_DELETE_FILES = "equality-delete-files";
   public static final String POSITIONAL_DELETE_FILES = "positional-delete-files";
   public static final String DVS = "dvs";
+  public static final String PUFFIN_FILES_READ = "puffin-files-read";
+  public static final String PUFFIN_READ_DURATION = "puffin-read-duration";
 
   public static ScanMetrics noop() {
     return ScanMetrics.of(MetricsContext.nullMetrics());
@@ -163,6 +165,16 @@ public abstract class ScanMetrics {
   @Value.Derived
   public Counter dvs() {
     return metricsContext().counter(DVS);
+  }
+
+  @Value.Derived
+  public Counter puffinFilesRead() {
+    return metricsContext().counter(PUFFIN_FILES_READ);
+  }
+
+  @Value.Derived
+  public Timer puffinReadDuration() {
+    return metricsContext().timer(PUFFIN_READ_DURATION, TimeUnit.NANOSECONDS);
   }
 
   public static ScanMetrics of(MetricsContext metricsContext) {
