@@ -106,6 +106,18 @@ public interface ScanMetricsResult {
     return null;
   }
 
+  @Nullable
+  @Value.Default
+  default CounterResult manifestFilesRead() {
+    return null;
+  }
+
+  @Nullable
+  @Value.Default
+  default TimerResult manifestReadDuration() {
+    return null;
+  }
+
   static ScanMetricsResult fromScanMetrics(ScanMetrics scanMetrics) {
     Preconditions.checkArgument(null != scanMetrics, "Invalid scan metrics: null");
     return ImmutableScanMetricsResult.builder()
@@ -134,6 +146,8 @@ public interface ScanMetricsResult {
         .dvs(CounterResult.fromCounter(scanMetrics.dvs()))
         .puffinFilesRead(CounterResult.fromCounter(scanMetrics.puffinFilesRead()))
         .puffinReadDuration(TimerResult.fromTimer(scanMetrics.puffinReadDuration()))
+        .manifestFilesRead(CounterResult.fromCounter(scanMetrics.manifestFilesRead()))
+        .manifestReadDuration(TimerResult.fromTimer(scanMetrics.manifestReadDuration()))
         .build();
   }
 }

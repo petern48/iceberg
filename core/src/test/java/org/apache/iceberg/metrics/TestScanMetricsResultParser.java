@@ -206,6 +206,8 @@ public class TestScanMetricsResultParser {
                     + "\"dvs\":{\"unit\":\"count\",\"value\":1},"
                     + "\"puffin-files-read\":{\"unit\":\"count\",\"value\":0},"
                     + "\"puffin-read-duration\":{\"count\":0,\"time-unit\":\"nanoseconds\",\"total-duration\":0},"
+                    + "\"manifest-files-read\":{\"unit\":\"count\",\"value\":0},"
+                    + "\"manifest-read-duration\":{\"count\":0,\"time-unit\":\"nanoseconds\",\"total-duration\":0},"
                     + "\"extra\": \"value\",\"extra2\":23}"))
         .isEqualTo(scanMetricsResult);
   }
@@ -345,6 +347,15 @@ public class TestScanMetricsResultParser {
             + "    \"count\" : 0,\n"
             + "    \"time-unit\" : \"nanoseconds\",\n"
             + "    \"total-duration\" : 0\n"
+            + "  },\n"
+            + "  \"manifest-files-read\" : {\n"
+            + "    \"unit\" : \"count\",\n"
+            + "    \"value\" : 0\n"
+            + "  },\n"
+            + "  \"manifest-read-duration\" : {\n"
+            + "    \"count\" : 0,\n"
+            + "    \"time-unit\" : \"nanoseconds\",\n"
+            + "    \"total-duration\" : 0\n"
             + "  }\n"
             + "}";
 
@@ -422,5 +433,66 @@ public class TestScanMetricsResultParser {
     assertThat(result.puffinFilesRead().value()).isEqualTo(2L);
     assertThat(result.puffinReadDuration()).isNotNull();
     assertThat(result.puffinReadDuration().totalDuration().toNanos()).isEqualTo(1_000_000L);
+  }
+
+  @Test
+  public void manifestFilesReadRoundTrip() {
+    ScanMetrics scanMetrics = ScanMetrics.of(new DefaultMetricsContext());
+    scanMetrics.manifestFilesRead().increment(7L);
+
+    ScanMetricsResult result = ScanMetricsResult.fromScanMetrics(scanMetrics);
+
+    assertThat(result.manifestFilesRead()).isNotNull();
+    assertThat(result.manifestFilesRead().value()).isEqualTo(7L);
+
+    String json = ScanMetricsResultParser.toJson(result);
+    ScanMetricsResult parsed = ScanMetricsResultParser.fromJson(json);
+    assertThat(parsed.manifestFilesRead()).isNotNull();
+    assertThat(parsed.manifestFilesRead().value()).isEqualTo(7L);
+  }
+
+  @Test
+  public void manifestReadDurationRoundTrip() {
+    ScanMetrics scanMetrics = ScanMetrics.of(new DefaultMetricsContext());
+    scanMetrics.manifestReadDuration().record(250, TimeUnit.MILLISECONDS);
+
+    ScanMetricsResult result = ScanMetricsResult.fromScanMetrics(scanMetrics);
+
+    assertThat(result.manifestReadDuration()).isNotNull();
+    assertThat(result.manifestReadDuration().count()).isEqualTo(1L);
+    assertThat(result.manifestReadDuration().totalDuration().toMillis()).isEqualTo(250L);
+
+    String json = ScanMetricsResultParser.toJson(result);
+    ScanMetricsResult parsed = ScanMetricsResultParser.fromJson(json);
+    assertThat(parsed.manifestReadDuration()).isNotNull();
+    assertThat(parsed.manifestReadDuration().count()).isEqualTo(1L);
+    assertThat(parsed.manifestReadDuration().totalDuration().toMillis()).isEqualTo(250L);
+  }
+
+  @Test
+  public void manifestMetricsAbsentFromNoopMetrics() {
+    ScanMetricsResult result = ScanMetricsResult.fromScanMetrics(ScanMetrics.noop());
+
+    assertThat(result.manifestFilesRead()).isNull();
+    assertThat(result.manifestReadDuration()).isNull();
+
+    String json = ScanMetricsResultParser.toJson(result);
+    assertThat(json).doesNotContain(ScanMetrics.MANIFEST_FILES_READ);
+    assertThat(json).doesNotContain(ScanMetrics.MANIFEST_READ_DURATION);
+  }
+
+  @Test
+  public void manifestMetricsFromJson() {
+    ScanMetricsResult result =
+        ScanMetricsResultParser.fromJson(
+            "{\"manifest-files-read\":{\"unit\":\"count\",\"value\":4},"
+                + "\"manifest-read-duration\":{\"count\":2,\"time-unit\":\"nanoseconds\","
+                + "\"total-duration\":2000000}}");
+
+    assertThat(result.manifestFilesRead()).isNotNull();
+    assertThat(result.manifestFilesRead().value()).isEqualTo(4L);
+    assertThat(result.manifestReadDuration()).isNotNull();
+    assertThat(result.manifestReadDuration().count()).isEqualTo(2L);
+    assertThat(result.manifestReadDuration().totalDuration().toNanos()).isEqualTo(2_000_000L);
   }
 }
