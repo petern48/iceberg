@@ -99,8 +99,8 @@ public class ReadTableSpark {
     Map<String, SQLMetric> metrics = null;
     for (SparkPlan leaf : leaves) {
       Map<String, SQLMetric> m = mapAsJavaMapConverter(leaf.metrics()).asJava();
-      if (m.containsKey("totalDataFileSize") || m.containsKey("numRowGroupsRead")
-          || m.containsKey("resultDataFiles")) {
+      if (m.containsKey("totalDataFileSize") || m.containsKey("resultDataFiles")
+          || m.containsKey("totalRowGroups")) {
         metrics = m;
         break;
       }
@@ -111,13 +111,28 @@ public class ReadTableSpark {
 
     System.out.println("Scan metrics:");
 
-    // Metrics the user asked for: object store requests, rows read, row groups, Parquet file sizes
+    // Data file metrics
+    printMetric(metrics, "totalScanDataFiles", "Total data files");
+    printMetric(metrics, "resultDataFiles", "Result data files");
+    printMetric(metrics, "skippedDataFiles", "Skipped data files");
     printMetric(metrics, "totalDataFileSize", "Total data file size (bytes)");
-    printMetric(metrics, "numRowGroupsRead", "Row groups read");
+
+    // Row group metrics
+    printMetric(metrics, "totalRowGroups", "Total row groups");
+    printMetric(metrics, "skippedRowGroups", "Skipped row groups");
+
+    // Puffin statistics file metrics
+    printMetric(
+        metrics, "puffinStatsFileSizeInBytes", "Puffin statistics file size (bytes)");
+    printMetric(
+        metrics,
+        "puffinStatsFooterSizeInBytes",
+        "Puffin statistics file footer size (bytes)");
+
+    // Other metrics
     printMetric(metrics, "numSplits", "File splits read");
     printMetric(metrics, "numDeletes", "Row deletes applied");
     printMetric(metrics, "numOutputRows", "Output rows");
-    printMetric(metrics, "resultDataFiles", "Result data files");
   }
 
   private static void printMetric(

@@ -33,6 +33,8 @@ public abstract class ScanMetrics {
   public static final String TOTAL_DELETE_MANIFESTS = "total-delete-manifests";
   public static final String TOTAL_FILE_SIZE_IN_BYTES = "total-file-size-in-bytes";
   public static final String TOTAL_DELETE_FILE_SIZE_IN_BYTES = "total-delete-file-size-in-bytes";
+  public static final String PUFFIN_STATS_FILE_SIZE_IN_BYTES = "puffin-stats-file-size-in-bytes";
+  public static final String PUFFIN_STATS_FOOTER_SIZE_IN_BYTES = "puffin-stats-footer-size-in-bytes";
   public static final String SKIPPED_DATA_MANIFESTS = "skipped-data-manifests";
   public static final String SKIPPED_DELETE_MANIFESTS = "skipped-delete-manifests";
   public static final String SKIPPED_DATA_FILES = "skipped-data-files";
@@ -86,6 +88,18 @@ public abstract class ScanMetrics {
   @Value.Derived
   public Counter totalDeleteFileSizeInBytes() {
     return metricsContext().counter(TOTAL_DELETE_FILE_SIZE_IN_BYTES, MetricsContext.Unit.BYTES);
+  }
+
+  @Value.Derived
+  public Counter puffinStatsFileSizeInBytes() {
+    return metricsContext()
+        .counter(PUFFIN_STATS_FILE_SIZE_IN_BYTES, MetricsContext.Unit.BYTES);
+  }
+
+  @Value.Derived
+  public Counter puffinStatsFooterSizeInBytes() {
+    return metricsContext()
+        .counter(PUFFIN_STATS_FOOTER_SIZE_IN_BYTES, MetricsContext.Unit.BYTES);
   }
 
   @Value.Derived

@@ -53,6 +53,12 @@ public interface ScanMetricsResult {
   CounterResult totalDeleteFileSizeInBytes();
 
   @Nullable
+  CounterResult puffinStatsFileSizeInBytes();
+
+  @Nullable
+  CounterResult puffinStatsFooterSizeInBytes();
+
+  @Nullable
   CounterResult skippedDataFiles();
 
   @Nullable
@@ -92,6 +98,8 @@ public interface ScanMetricsResult {
         .totalFileSizeInBytes(CounterResult.fromCounter(scanMetrics.totalFileSizeInBytes()))
         .totalDeleteFileSizeInBytes(
             CounterResult.fromCounter(scanMetrics.totalDeleteFileSizeInBytes()))
+        .puffinStatsFileSizeInBytes(CounterResult.fromCounter(scanMetrics.puffinStatsFileSizeInBytes()))
+        .puffinStatsFooterSizeInBytes(CounterResult.fromCounter(scanMetrics.puffinStatsFooterSizeInBytes()))
         .skippedDataFiles(CounterResult.fromCounter(scanMetrics.skippedDataFiles()))
         .skippedDeleteFiles(CounterResult.fromCounter(scanMetrics.skippedDeleteFiles()))
         .scannedDeleteManifests(CounterResult.fromCounter(scanMetrics.scannedDeleteManifests()))
