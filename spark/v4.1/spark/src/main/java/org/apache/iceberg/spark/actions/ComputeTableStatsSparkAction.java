@@ -105,12 +105,6 @@ public class ComputeTableStatsSparkAction extends BaseSparkAction<ComputeTableSt
     List<Blob> blobs = generateNDVBlobs();
     StatisticsFile statisticsFile = writeStatsFile(blobs);
     table.updateStatistics().setStatistics(statisticsFile).commit();
-    LOG.info(
-        "Puffin statistics file for table {} (snapshot {}): fileSizeInBytes={}, footerSizeInBytes={}",
-        table.name(),
-        snapshotId(),
-        statisticsFile.fileSizeInBytes(),
-        statisticsFile.fileFooterSizeInBytes());
     return ImmutableComputeTableStats.Result.builder().statisticsFile(statisticsFile).build();
   }
 
