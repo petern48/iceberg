@@ -122,12 +122,27 @@ public class ReadTableSpark {
       metrics = mapAsJavaMapConverter(leaves.get(0).metrics()).asJava();
     }
 
-    System.out.println("  Scan metrics:");
+    System.out.println("Scan metrics:");
+
+    // Data file metrics
     printMetric(metrics, "totalScanDataFiles", "Total data files");
-    printMetric(metrics, "resultDataFiles", "Result data files (after bloom filter pruning)");
+    printMetric(metrics, "resultDataFiles", "Result data files");
     printMetric(metrics, "skippedDataFiles", "Skipped data files");
+    printMetric(metrics, "totalDataFileSize", "Total data file size (bytes)");
+
+    // Row group metrics
     printMetric(metrics, "totalRowGroups", "Total row groups");
     printMetric(metrics, "skippedRowGroups", "Skipped row groups");
+
+    // Puffin statistics file metrics
+    printMetric(
+        metrics, "puffinStatsFileSizeInBytes", "Puffin statistics file size (bytes)");
+    printMetric(
+        metrics,
+        "puffinStatsFooterSizeInBytes",
+        "Puffin statistics file footer size (bytes)");
+
+    // Other metrics
     printMetric(metrics, "numSplits", "File splits read");
     printMetric(metrics, "numOutputRows", "Output rows");
   }

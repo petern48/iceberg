@@ -20,6 +20,7 @@ package org.apache.iceberg;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.apache.iceberg.events.Listeners;
 import org.apache.iceberg.events.ScanEvent;
@@ -162,6 +163,17 @@ public abstract class SnapshotScan<ThisT, T extends ScanTask, G extends ScanTask
         doPlanFiles(),
         () -> {
           planningDuration.stop();
+          Optional<StatisticsFile> statisticsFile =
+              table().statisticsFiles().stream()
+                  .filter(f -> f.snapshotId() == snapshot.snapshotId())
+                  .findFirst();
+          if (statisticsFile.isPresent()) {
+            StatisticsFile stats = statisticsFile.get();
+            scanMetrics().puffinStatsFileSizeInBytes().increment(stats.fileSizeInBytes());
+            scanMetrics()
+                .puffinStatsFooterSizeInBytes()
+                .increment(stats.fileFooterSizeInBytes());
+          }
           Map<String, String> metadata = Maps.newHashMap(context().options());
           metadata.putAll(EnvironmentContext.get());
           ScanReport scanReport =

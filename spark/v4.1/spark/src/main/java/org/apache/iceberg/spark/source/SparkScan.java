@@ -68,6 +68,8 @@ import org.apache.iceberg.spark.source.metrics.TaskSkippedDeleteFiles;
 import org.apache.iceberg.spark.source.metrics.TaskSkippedDeleteManifests;
 import org.apache.iceberg.spark.source.metrics.TaskSkippedRowGroups;
 import org.apache.iceberg.spark.source.metrics.TaskTotalDataFileSize;
+import org.apache.iceberg.spark.source.metrics.TaskPuffinStatsFileSizeInBytes;
+import org.apache.iceberg.spark.source.metrics.TaskPuffinStatsFooterSizeInBytes;
 import org.apache.iceberg.spark.source.metrics.TaskTotalDataManifests;
 import org.apache.iceberg.spark.source.metrics.TaskTotalDeleteFileSize;
 import org.apache.iceberg.spark.source.metrics.TaskTotalDeleteManifests;
@@ -81,6 +83,8 @@ import org.apache.iceberg.spark.source.metrics.TotalDeleteManifests;
 import org.apache.iceberg.spark.source.metrics.TotalPlanningDuration;
 import org.apache.iceberg.spark.source.metrics.TotalRowGroups;
 import org.apache.iceberg.spark.source.metrics.TotalScanDataFiles;
+import org.apache.iceberg.spark.source.metrics.PuffinStatsFileSizeInBytes;
+import org.apache.iceberg.spark.source.metrics.PuffinStatsFooterSizeInBytes;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.PropertyUtil;
 import org.apache.iceberg.util.SnapshotUtil;
@@ -303,6 +307,10 @@ abstract class SparkScan implements Scan, SupportsReportStatistics {
     driverMetrics.add(TaskTotalRowGroups.from(scanReport));
     driverMetrics.add(TaskSkippedRowGroups.from(scanReport));
 
+    // Puffin statistics file
+    driverMetrics.add(TaskPuffinStatsFileSizeInBytes.from(scanReport));
+    driverMetrics.add(TaskPuffinStatsFooterSizeInBytes.from(scanReport));
+
     // delete manifests
     driverMetrics.add(TaskTotalDeleteManifests.from(scanReport));
     driverMetrics.add(TaskScannedDeleteManifests.from(scanReport));
@@ -343,6 +351,10 @@ abstract class SparkScan implements Scan, SupportsReportStatistics {
       // row groups
       new TotalRowGroups(),
       new SkippedRowGroups(),
+
+      // Puffin statistics file
+      new PuffinStatsFileSizeInBytes(),
+      new PuffinStatsFooterSizeInBytes(),
 
       // delete manifests
       new TotalDeleteManifests(),
