@@ -18,6 +18,10 @@
  */
 package org.apache.iceberg.dev;
 
+// For writing metrics to a json file
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +35,8 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.actions.ComputeTableStats;
 import org.apache.iceberg.spark.Spark3Util;
 import org.apache.iceberg.spark.actions.SparkActions;
+
+import org.apache.iceberg.dev.WriteMetrics;
 
 /**
  * Spark equivalent of CreateTable.java - creates Iceberg tables locally using Spark APIs with a
@@ -129,6 +135,33 @@ public class CreateTableSpark {
           .forEach(m -> System.out.println("    " + m.properties().get("data-file-path")));
     }
 
+    WriteMetrics metrics = new WriteMetrics();
+    metrics.totalRowGroups = 10;
+    metrics.totalDataFiles = 3;
+    metrics.maxMemoryUsage = 512.5f;
+    metrics.puffinWriteDuration = 12.3f;
+    metrics.manifestWriteDuration = 5.7f;
+    metrics.datafileWriteDuration = 20.1f;
+    metrics.totalWriteDuration = 38.1f;
+    metrics.puffinDiskSizeInBytes = 1000.0f;
+    metrics.puffinFooterSizeInBytes = 100.0f;
+
+    exportWriteMetrics(metrics);
+
     spark.stop();
+  }
+
+  private static void exportWriteMetrics(WriteMetrics metrics) throws Exception {
+    // Export fake data .json data for development purposes
+
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+    // TODO: parametrize the file name using input arguments
+    // This should be write a file at spark-dev/write-metrics.json
+    String outputPath = "write-metrics.json";
+    mapper.writeValue(Paths.get(outputPath).toFile(), metrics);
+    System.out.println("(Fake) Read Metrics exported to " + outputPath);
+
   }
 }

@@ -21,6 +21,10 @@ package org.apache.iceberg.dev;
 import static scala.collection.JavaConverters.mapAsJavaMapConverter;
 import static scala.collection.JavaConverters.seqAsJavaListConverter;
 
+// For writing metrics to a json file
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +33,8 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.execution.SparkPlan;
 import org.apache.spark.sql.execution.metric.SQLMetric;
+
+import org.apache.iceberg.dev.ReadMetrics;
 
 /**
  * Reads Iceberg tables locally using Spark with a Hadoop catalog and demonstrates file-level bloom
@@ -83,7 +89,30 @@ public class ReadTableSpark {
     runQuery(
         spark, tableName, "id IN (1, 100)", "values in two different files (expect ~2 files kept)");
 
+    // Export fake data .json data for development purposes
+    ReadMetrics metrics = new ReadMetrics();
+    metrics.skippedRowGroups = 10;
+    metrics.skippedDataFiles = 3;
+    metrics.maxMemoryUsage = 512.5f;
+    metrics.puffinReadDuration = 12.3f;
+    metrics.manifestReadDuration = 5.7f;
+    metrics.datafileReadDuration = 20.1f;
+    metrics.totalReadDuration = 38.1f;
+
+    exportReadMetrics(metrics);
+
     spark.stop();
+  }
+
+  private static void exportReadMetrics(ReadMetrics metrics) throws Exception {
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+    // TODO: parametrize the file name using input arguments
+    // This should be write a file at spark-dev/read-metrics.json
+    String outputPath = "read-metrics.json";
+    mapper.writeValue(Paths.get(outputPath).toFile(), metrics);
+    System.out.println("(Fake) Read Metrics exported to " + outputPath);
   }
 
   private static void runQuery(
@@ -152,6 +181,8 @@ public class ReadTableSpark {
     SQLMetric m = metrics.get(name);
     if (m != null) {
       System.out.println("    " + description + ": " + m.value());
+    } else {
+      System.out.println("    Metric " + name + " NOT FOUND");
     }
   }
 }
