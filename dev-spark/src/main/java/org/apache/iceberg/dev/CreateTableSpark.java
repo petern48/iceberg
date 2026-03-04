@@ -65,7 +65,7 @@ public class CreateTableSpark {
             .config("spark.sql.catalog.local.warehouse", warehouse)
             .getOrCreate();
 
-    spark.sparkContext().setLogLevel("WARN");
+    spark.sparkContext().setLogLevel("ERROR");
 
     String tableName = "local.default.sample_table_spark";
 
@@ -87,17 +87,13 @@ public class CreateTableSpark {
     System.out.println("Created table: " + tableName);
     System.out.println("Bloom filters: enabled for id, data");
 
+    // Configuration for larger dataset with distinct ID ranges per file
     int numDataFiles = 10;
-    int recordsPerFile = 10;
-    List<Row> rows = new ArrayList<>();
-    for (int i = 0; i < numDataFiles * recordsPerFile; i++) {
-      rows.add(
-          org.apache.spark.sql.RowFactory.create(
-              (long) (i + 1),
-              "item_" + (i + 1),
-              java.sql.Timestamp.from(
-                  java.time.OffsetDateTime.parse("2024-01-15T10:00:00Z").plusDays(i).toInstant())));
-    }
+    int recordsPerFile = 100_000; // 100K rows per file = 1M total rows
+    long totalRecords = (long) numDataFiles * recordsPerFile;
+
+    System.out.println("Generating " + totalRecords + " records across " + numDataFiles + " files...");
+    System.out.println("Each file will have a distinct ID range for effective bloom filter pruning");
 
     StructType schema =
         DataTypes.createStructType(
@@ -107,10 +103,35 @@ public class CreateTableSpark {
               DataTypes.createStructField("created_at", DataTypes.TimestampType, true)
             });
 
-    Dataset<Row> df = spark.createDataFrame(rows, schema);
-    df.repartition(numDataFiles).writeTo(tableName).append();
+    // Write each file separately with distinct ID ranges
+    // File 0: IDs 1 to 100,000
+    // File 1: IDs 100,001 to 200,000
+    // etc.
+    for (int fileNum = 0; fileNum < numDataFiles; fileNum++) {
+      long startId = (long) fileNum * recordsPerFile + 1;
+      long endId = startId + recordsPerFile;
 
-    System.out.println("Wrote " + (numDataFiles * recordsPerFile) + " records in " + numDataFiles + " data files");
+      List<Row> rows = new ArrayList<>(recordsPerFile);
+      for (long id = startId; id < endId; id++) {
+        rows.add(
+            org.apache.spark.sql.RowFactory.create(
+                id,
+                "item_" + id,
+                java.sql.Timestamp.from(
+                    java.time.OffsetDateTime.parse("2024-01-15T10:00:00Z")
+                        .plusSeconds(id)
+                        .toInstant())));
+      }
+
+      Dataset<Row> df = spark.createDataFrame(rows, schema);
+      df.coalesce(1).writeTo(tableName).append();
+
+      System.out.println(
+          "  File " + (fileNum + 1) + "/" + numDataFiles + ": IDs " + startId + " to " + (endId - 1));
+    }
+
+    System.out.println(
+        "Wrote " + totalRecords + " records in " + numDataFiles + " data files");
 
     Table table = Spark3Util.loadIcebergTable(spark, tableName);
     table.refresh();

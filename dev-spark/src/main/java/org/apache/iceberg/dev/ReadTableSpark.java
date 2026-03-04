@@ -74,36 +74,54 @@ public class ReadTableSpark {
             .config("spark.sql.catalog.local.warehouse", warehouse)
             .getOrCreate();
 
-    spark.sparkContext().setLogLevel("WARN");
+    spark.sparkContext().setLogLevel("ERROR");
 
     System.out.println("Reading table: " + tableName);
     System.out.println();
+    System.out.println("Data layout: 10 files with 100K rows each");
+    System.out.println("  File 1: IDs 1-100,000");
+    System.out.println("  File 2: IDs 100,001-200,000");
+    System.out.println("  ... etc ...");
+    System.out.println();
 
-    // Query 1: id = 99 — value exists in exactly one file; bloom filter keeps that file,
-    // prunes the other 9.
+    // Query 1: id = 50000 — exists in file 1 only; bloom filter should skip 9 files
     MemoryTracker.Result mem1 =
         runQueryWithMemoryTracking(
-            spark, tableName, "id = 99", "value exists in one file (expect ~1 file kept)");
+            spark,
+            tableName,
+            "id = 50000",
+            "value in file 1 (IDs 1-100K), expect 9 files skipped");
 
-    // Query 2: id = 9999 — value absent from all files; bloom filter prunes all 10 files.
+    // Query 2: id = 9999999 — value doesn't exist; bloom filter should skip all 10 files
     MemoryTracker.Result mem2 =
         runQueryWithMemoryTracking(
-            spark, tableName, "id = 9999", "value absent from all files (expect 0 files)");
+            spark,
+            tableName,
+            "id = 9999999",
+            "value doesn't exist, expect all 10 files skipped");
 
-    // Query 3: id IN (1, 100) — values spread across two different files; bloom filter keeps
-    // those two files, prunes the remaining 8.
+    // Query 3: id IN (50000, 550000) — values in file 1 and file 6; expect 8 files skipped
     MemoryTracker.Result mem3 =
         runQueryWithMemoryTracking(
             spark,
             tableName,
-            "id IN (1, 100)",
-            "values in two different files (expect ~2 files kept)");
+            "id IN (50000, 550000)",
+            "values in files 1 and 6, expect 8 files skipped");
+
+    // Query 4: id BETWEEN 150000 AND 150100 — range within file 2; expect 9 files skipped
+    MemoryTracker.Result mem4 =
+        runQueryWithMemoryTracking(
+            spark,
+            tableName,
+            "id BETWEEN 150000 AND 150100",
+            "range in file 2 (IDs 100K-200K), expect 9 files skipped");
 
     // Print memory summary
     System.out.println("=== Memory Summary ===");
-    System.out.println("  Query 1 (id = 99): " + mem1);
-    System.out.println("  Query 2 (id = 9999): " + mem2);
-    System.out.println("  Query 3 (id IN (1, 100)): " + mem3);
+    System.out.println("  Query 1 (id = 50000): " + mem1);
+    System.out.println("  Query 2 (id = 9999999): " + mem2);
+    System.out.println("  Query 3 (id IN (50000, 550000)): " + mem3);
+    System.out.println("  Query 4 (id BETWEEN 150000 AND 150100): " + mem4);
     System.out.println();
 
     // Export fake data .json data for development purposes

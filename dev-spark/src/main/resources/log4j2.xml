@@ -1,12 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration status="WARN">
+<Configuration status="ERROR">
   <Appenders>
     <Console name="Console" target="SYSTEM_ERR">
       <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n"/>
     </Console>
   </Appenders>
   <Loggers>
-    <Root level="WARN">
+    <Logger name="org.apache.spark" level="ERROR"/>
+    <Logger name="org.apache.hadoop" level="ERROR"/>
+    <Logger name="org.apache.iceberg" level="ERROR"/>
+    <Logger name="org.sparkproject" level="ERROR"/>
+    <Root level="ERROR">
       <AppenderRef ref="Console"/>
     </Root>
   </Loggers>
