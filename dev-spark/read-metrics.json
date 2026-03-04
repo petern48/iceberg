@@ -1,9 +1,12 @@
 {
-  "skippedRowGroups" : 10,
-  "skippedDataFiles" : 3,
-  "maxMemoryUsage" : 512.5,
-  "puffinReadDuration" : 12.3,
-  "manifestReadDuration" : 5.7,
-  "datafileReadDuration" : 20.1,
-  "totalReadDuration" : 38.1
+  "totalScanDataFiles" : 2,
+  "resultDataFiles" : 2,
+  "skippedDataFiles" : 8,
+  "totalDataFileSizeBytes" : 4196633,
+  "totalRowGroups" : 0,
+  "skippedRowGroups" : 0,
+  "puffinStatsFileSizeBytes" : 11804,
+  "puffinStatsFooterSizeBytes" : 4260,
+  "numSplits" : 1,
+  "numOutputRows" : 10
 }

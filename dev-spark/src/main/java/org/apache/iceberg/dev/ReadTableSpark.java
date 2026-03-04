@@ -25,6 +25,7 @@ import static scala.collection.JavaConverters.seqAsJavaListConverter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
+import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
@@ -77,56 +78,78 @@ public class ReadTableSpark {
     System.out.println("Reading table: " + tableName);
     System.out.println();
 
-    // Query 1: id = 99 — value exists in exactly one file; bloom filter keeps that file,
-    // prunes the other 9.
-    runQuery(spark, tableName, "id = 99", "value exists in one file (expect ~1 file kept)");
+    Dataset<Row> lastDf =
+        runQuery(spark, tableName, "id = 99", "value exists in one file (expect ~1 file kept)");
 
-    // Query 2: id = 9999 — value absent from all files; bloom filter prunes all 10 files.
-    runQuery(spark, tableName, "id = 9999", "value absent from all files (expect 0 files)");
-
-    // Query 3: id IN (1, 100) — values spread across two different files; bloom filter keeps
-    // those two files, prunes the remaining 8.
-    runQuery(
-        spark, tableName, "id IN (1, 100)", "values in two different files (expect ~2 files kept)");
-
-    // Export fake data .json data for development purposes
-    ReadMetrics metrics = new ReadMetrics();
-    metrics.skippedRowGroups = 10;
-    metrics.skippedDataFiles = 3;
-    metrics.maxMemoryUsage = 512.5f;
-    metrics.puffinReadDuration = 12.3f;
-    metrics.manifestReadDuration = 5.7f;
-    metrics.datafileReadDuration = 20.1f;
-    metrics.totalReadDuration = 38.1f;
-
+    ReadMetrics metrics = collectReadMetrics(lastDf);
     exportReadMetrics(metrics);
 
     spark.stop();
   }
 
-  private static void exportReadMetrics(ReadMetrics metrics) throws Exception {
+  private static void exportReadMetrics(ReadMetrics metrics) throws IOException {
     ObjectMapper mapper = new ObjectMapper();
     mapper.enable(SerializationFeature.INDENT_OUTPUT);
-
-    // TODO: parametrize the file name using input arguments
-    // This should be write a file at spark-dev/read-metrics.json
     String outputPath = "read-metrics.json";
     mapper.writeValue(Paths.get(outputPath).toFile(), metrics);
-    System.out.println("(Fake) Read Metrics exported to " + outputPath);
+    System.out.println("Read metrics exported to " + outputPath);
   }
 
-  private static void runQuery(
+  /** Build ReadMetrics from the executed plan's SQL metrics. Missing metrics become null. */
+  private static ReadMetrics collectReadMetrics(Dataset<Row> df) {
+    ReadMetrics m = new ReadMetrics();
+    Map<String, SQLMetric> planMetrics = getIcebergScanMetrics(df);
+    if (planMetrics == null) {
+      return m;
+    }
+    m.totalScanDataFiles = longToInt(planMetrics.get("totalScanDataFiles"));
+    m.resultDataFiles = longToInt(planMetrics.get("resultDataFiles"));
+    m.skippedDataFiles = longToInt(planMetrics.get("skippedDataFiles"));
+    m.totalDataFileSizeBytes = getLong(planMetrics.get("totalDataFileSize"));
+    m.totalRowGroups = longToInt(planMetrics.get("totalRowGroups"));
+    m.skippedRowGroups = longToInt(planMetrics.get("skippedRowGroups"));
+    m.puffinStatsFileSizeBytes = getLong(planMetrics.get("puffinStatsFileSizeInBytes"));
+    m.puffinStatsFooterSizeBytes = getLong(planMetrics.get("puffinStatsFooterSizeInBytes"));
+    m.numSplits = longToInt(planMetrics.get("numSplits"));
+    m.numOutputRows = getLong(planMetrics.get("numOutputRows"));
+    return m;
+  }
+
+  private static Map<String, SQLMetric> getIcebergScanMetrics(Dataset<Row> df) {
+    SparkPlan plan = df.queryExecution().executedPlan();
+    List<SparkPlan> leaves = seqAsJavaListConverter(plan.collectLeaves()).asJava();
+    for (SparkPlan leaf : leaves) {
+      Map<String, SQLMetric> map = mapAsJavaMapConverter(leaf.metrics()).asJava();
+      if (map.containsKey("totalDataFileSize") || map.containsKey("resultDataFiles")
+          || map.containsKey("totalRowGroups")) {
+        return map;
+      }
+    }
+    return leaves.isEmpty() ? null : mapAsJavaMapConverter(leaves.get(0).metrics()).asJava();
+  }
+
+  private static Integer longToInt(SQLMetric metric) {
+    if (metric == null) return null;
+    long v = metric.value();
+    return v <= Integer.MAX_VALUE ? (int) v : null;
+  }
+
+  private static Long getLong(SQLMetric metric) {
+    return metric == null ? null : metric.value();
+  }
+
+  private static Dataset<Row> runQuery(
       SparkSession spark, String tableName, String predicate, String description) {
     System.out.println("=== Query: " + predicate + " ===");
     System.out.println("    " + description);
 
     Dataset<Row> df = spark.table(tableName).filter(predicate);
-    // Use collectAsList() — count() uses a different plan that doesn't populate scan metrics.
     List<Row> rows = df.collectAsList();
     System.out.println("  Row count: " + rows.size());
 
     printScanMetrics(df);
     System.out.println();
+    return df;
   }
 
   private static void printScanMetrics(Dataset<Row> df) {

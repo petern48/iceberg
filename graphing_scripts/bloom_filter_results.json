@@ -1,99 +1,119 @@
 {
-  "dataset_sizes": ["1GB", "5GB", "10GB", "50GB"],
-
+  "dataset_sizes": [
+    "small"
+  ],
   "pruning_read": {
     "no_bloom_filter": [
-      {"total_row_groups": 500,  "skipped_row_groups": 0,   "total_data_files": 50,  "skipped_data_files": 0},
-      {"total_row_groups": 2500, "skipped_row_groups": 0,   "total_data_files": 250, "skipped_data_files": 0},
-      {"total_row_groups": 5000, "skipped_row_groups": 0,   "total_data_files": 500, "skipped_data_files": 0},
-      {"total_row_groups": 25000,"skipped_row_groups": 0,   "total_data_files": 2500,"skipped_data_files": 0}
+      {
+        "total_row_groups": 0,
+        "skipped_row_groups": 0,
+        "total_data_files": 10,
+        "skipped_data_files": 8
+      }
     ],
     "row_group_bloom_filter": [
-      {"total_row_groups": 500,  "skipped_row_groups": 380, "total_data_files": 50,  "skipped_data_files": 0},
-      {"total_row_groups": 2500, "skipped_row_groups": 1900,"total_data_files": 250, "skipped_data_files": 0},
-      {"total_row_groups": 5000, "skipped_row_groups": 3800,"total_data_files": 500, "skipped_data_files": 0},
-      {"total_row_groups": 25000,"skipped_row_groups": 19000,"total_data_files": 2500,"skipped_data_files": 0}
+      {
+        "total_row_groups": 0,
+        "skipped_row_groups": 0,
+        "total_data_files": 10,
+        "skipped_data_files": 8
+      }
     ],
     "file_level_bloom_filter": [
-      {"total_row_groups": 500,  "skipped_row_groups": 420, "total_data_files": 50,  "skipped_data_files": 40},
-      {"total_row_groups": 2500, "skipped_row_groups": 2100,"total_data_files": 250, "skipped_data_files": 200},
-      {"total_row_groups": 5000, "skipped_row_groups": 4200,"total_data_files": 500, "skipped_data_files": 400},
-      {"total_row_groups": 25000,"skipped_row_groups": 21000,"total_data_files": 2500,"skipped_data_files": 2000}
+      {
+        "total_row_groups": 0,
+        "skipped_row_groups": 0,
+        "total_data_files": 10,
+        "skipped_data_files": 8
+      }
     ]
   },
-
   "disk_storage_bytes": {
     "no_bloom_filter": [
-      {"puffin_bytes": 0,        "manifest_overhead_bytes": 0},
-      {"puffin_bytes": 0,        "manifest_overhead_bytes": 0},
-      {"puffin_bytes": 0,        "manifest_overhead_bytes": 0},
-      {"puffin_bytes": 0,        "manifest_overhead_bytes": 0}
+      {
+        "puffin_bytes": 2192,
+        "manifest_overhead_bytes": 0
+      }
     ],
     "row_group_bloom_filter": [
-      {"puffin_bytes": 5242880,  "manifest_overhead_bytes": 10240},
-      {"puffin_bytes": 26214400, "manifest_overhead_bytes": 51200},
-      {"puffin_bytes": 52428800, "manifest_overhead_bytes": 102400},
-      {"puffin_bytes": 262144000,"manifest_overhead_bytes": 512000}
+      {
+        "puffin_bytes": 2192,
+        "manifest_overhead_bytes": 0
+      }
     ],
     "file_level_bloom_filter": [
-      {"puffin_bytes": 1048576,  "manifest_overhead_bytes": 2048},
-      {"puffin_bytes": 5242880,  "manifest_overhead_bytes": 10240},
-      {"puffin_bytes": 10485760, "manifest_overhead_bytes": 20480},
-      {"puffin_bytes": 52428800, "manifest_overhead_bytes": 102400}
+      {
+        "puffin_bytes": 11804,
+        "manifest_overhead_bytes": 0
+      }
     ]
   },
-
   "memory_read_mb": {
-    "no_bloom_filter":           [128,  310,  610,  2900],
-    "row_group_bloom_filter":    [145,  360,  720,  3500],
-    "file_level_bloom_filter":   [132,  320,  630,  2980]
+    "no_bloom_filter": [
+      0
+    ],
+    "row_group_bloom_filter": [
+      0
+    ],
+    "file_level_bloom_filter": [
+      0
+    ]
   },
-
   "memory_write_mb": {
-    "no_bloom_filter":           [200,  480,  950,  4600],
-    "row_group_bloom_filter":    [280,  680, 1350,  6500],
-    "file_level_bloom_filter":   [210,  500,  990,  4800]
+    "no_bloom_filter": [
+      0
+    ],
+    "row_group_bloom_filter": [
+      0
+    ],
+    "file_level_bloom_filter": [
+      0
+    ]
   },
-
   "time_read_ms": {
     "no_bloom_filter": [
-      {"metadata_ms": 120, "puffin_ms": 0,   "data_ms": 3200},
-      {"metadata_ms": 210, "puffin_ms": 0,   "data_ms": 14000},
-      {"metadata_ms": 380, "puffin_ms": 0,   "data_ms": 27000},
-      {"metadata_ms": 1500,"puffin_ms": 0,   "data_ms": 130000}
+      {
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0
+      }
     ],
     "row_group_bloom_filter": [
-      {"metadata_ms": 120, "puffin_ms": 85,  "data_ms": 620},
-      {"metadata_ms": 210, "puffin_ms": 430, "data_ms": 2900},
-      {"metadata_ms": 380, "puffin_ms": 860, "data_ms": 5400},
-      {"metadata_ms": 1500,"puffin_ms": 4200,"data_ms": 26000}
+      {
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0
+      }
     ],
     "file_level_bloom_filter": [
-      {"metadata_ms": 120, "puffin_ms": 18,  "data_ms": 560},
-      {"metadata_ms": 210, "puffin_ms": 85,  "data_ms": 2600},
-      {"metadata_ms": 380, "puffin_ms": 170, "data_ms": 4900},
-      {"metadata_ms": 1500,"puffin_ms": 840, "data_ms": 23000}
+      {
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0
+      }
     ]
   },
-
   "time_write_ms": {
     "no_bloom_filter": [
-      {"metadata_ms": 95,  "puffin_ms": 0,   "data_ms": 4800},
-      {"metadata_ms": 190, "puffin_ms": 0,   "data_ms": 22000},
-      {"metadata_ms": 350, "puffin_ms": 0,   "data_ms": 43000},
-      {"metadata_ms": 1400,"puffin_ms": 0,   "data_ms": 210000}
+      {
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0
+      }
     ],
     "row_group_bloom_filter": [
-      {"metadata_ms": 95,  "puffin_ms": 310, "data_ms": 5500},
-      {"metadata_ms": 190, "puffin_ms": 1500,"data_ms": 25000},
-      {"metadata_ms": 350, "puffin_ms": 3000,"data_ms": 49000},
-      {"metadata_ms": 1400,"puffin_ms": 14500,"data_ms": 240000}
+      {
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0
+      }
     ],
     "file_level_bloom_filter": [
-      {"metadata_ms": 95,  "puffin_ms": 65,  "data_ms": 4900},
-      {"metadata_ms": 190, "puffin_ms": 310, "data_ms": 22500},
-      {"metadata_ms": 350, "puffin_ms": 620, "data_ms": 44000},
-      {"metadata_ms": 1400,"puffin_ms": 3000,"data_ms": 215000}
+      {
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0
+      }
     ]
   }
 }

@@ -23,6 +23,9 @@ mainClassName = 'org.apache.iceberg.dev.CreateTableSpark'
 
 run {
   jvmArgs += rootProject.ext.extraJvmArgs
+  if (project.hasProperty("runArgs")) {
+    args project.runArgs.split(",").collect { it.trim() }
+  }
 }
 
 task runReadTable(type: JavaExec) {
