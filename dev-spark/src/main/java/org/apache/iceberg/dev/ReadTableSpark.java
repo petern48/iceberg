@@ -25,8 +25,10 @@ import static scala.collection.JavaConverters.seqAsJavaListConverter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
+import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -79,32 +81,47 @@ public class ReadTableSpark {
 
     // Query 1: id = 99 — value exists in exactly one file; bloom filter keeps that file,
     // prunes the other 9.
-    runQuery(spark, tableName, "id = 99", "value exists in one file (expect ~1 file kept)");
+    MemoryTracker.Result mem1 =
+        runQueryWithMemoryTracking(
+            spark, tableName, "id = 99", "value exists in one file (expect ~1 file kept)");
 
     // Query 2: id = 9999 — value absent from all files; bloom filter prunes all 10 files.
-    runQuery(spark, tableName, "id = 9999", "value absent from all files (expect 0 files)");
+    MemoryTracker.Result mem2 =
+        runQueryWithMemoryTracking(
+            spark, tableName, "id = 9999", "value absent from all files (expect 0 files)");
 
     // Query 3: id IN (1, 100) — values spread across two different files; bloom filter keeps
     // those two files, prunes the remaining 8.
-    runQuery(
-        spark, tableName, "id IN (1, 100)", "values in two different files (expect ~2 files kept)");
+    MemoryTracker.Result mem3 =
+        runQueryWithMemoryTracking(
+            spark,
+            tableName,
+            "id IN (1, 100)",
+            "values in two different files (expect ~2 files kept)");
+
+    // Print memory summary
+    System.out.println("=== Memory Summary ===");
+    System.out.println("  Query 1 (id = 99): " + mem1);
+    System.out.println("  Query 2 (id = 9999): " + mem2);
+    System.out.println("  Query 3 (id IN (1, 100)): " + mem3);
+    System.out.println();
 
     // Export fake data .json data for development purposes
     ReadMetrics metrics = new ReadMetrics();
     metrics.skippedRowGroups = 10;
     metrics.skippedDataFiles = 3;
-    metrics.maxMemoryUsage = 512.5f;
+    metrics.maxMemoryUsage = (float) mem3.peakMemoryMB();
+    metrics.totalReadDuration = (float) mem3.durationMs();
     metrics.puffinReadDuration = 12.3f;
     metrics.manifestReadDuration = 5.7f;
     metrics.datafileReadDuration = 20.1f;
-    metrics.totalReadDuration = 38.1f;
 
     exportReadMetrics(metrics);
 
     spark.stop();
   }
 
-  private static void exportReadMetrics(ReadMetrics metrics) throws Exception {
+  private static void exportReadMetrics(ReadMetrics metrics) throws IOException {
     ObjectMapper mapper = new ObjectMapper();
     mapper.enable(SerializationFeature.INDENT_OUTPUT);
 
@@ -112,21 +129,33 @@ public class ReadTableSpark {
     // This should be write a file at spark-dev/read-metrics.json
     String outputPath = "read-metrics.json";
     mapper.writeValue(Paths.get(outputPath).toFile(), metrics);
-    System.out.println("(Fake) Read Metrics exported to " + outputPath);
+    System.out.println("Read Metrics exported to " + outputPath);
   }
 
-  private static void runQuery(
+  private static MemoryTracker.Result runQueryWithMemoryTracking(
       SparkSession spark, String tableName, String predicate, String description) {
     System.out.println("=== Query: " + predicate + " ===");
     System.out.println("    " + description);
 
     Dataset<Row> df = spark.table(tableName).filter(predicate);
-    // Use collectAsList() — count() uses a different plan that doesn't populate scan metrics.
-    List<Row> rows = df.collectAsList();
+
+    // Track memory and duration while executing the query
+    MemoryTracker.TrackedResult<List<Row>> tracked =
+        MemoryTracker.trackWithResult(df::collectAsList);
+
+    List<Row> rows = tracked.value();
+    MemoryTracker.Result memResult = tracked.metrics();
+
     System.out.println("  Row count: " + rows.size());
+    System.out.println(
+        "  Peak memory: " + String.format(Locale.ROOT, "%.2f MB", memResult.peakMemoryMB()));
+    System.out.println(
+        "  Duration: " + String.format(Locale.ROOT, "%.2f ms", memResult.durationMs()));
 
     printScanMetrics(df);
     System.out.println();
+
+    return memResult;
   }
 
   private static void printScanMetrics(Dataset<Row> df) {
