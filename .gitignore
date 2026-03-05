@@ -1,3 +1,12 @@
+# Files added for experiment project
+graphing_scripts/graphs
+dev-spark/read-metrics.json
+dev-spark/write-metrics.json
+graphing_scripts/bloom_filter_results.json
+
+# original iceberg .gitignore below
+
+
 *.swp
 .DS_Store
 .cache
