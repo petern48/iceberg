@@ -45,7 +45,13 @@ import org.apache.iceberg.dev.WriteMetrics;
  * Hadoop catalog, writes data, enables bloom filters, and computes NDV statistics.
  *
  * <p>Run with: ./gradlew :iceberg-dev-spark:run
- * <p>Optional args: [bloom_mode] — one of "none", "row_group", "file_level" (default: "file_level").
+ * <p>Optional args: [bloom_mode] [num_files] [records_per_file]
+ *   - bloom_mode: one of "none", "row_group", "file_level" (default: "file_level")
+ *   - num_files: number of data files to create (default: 10)
+ *   - records_per_file: rows per file (default: 100000)
+ *
+ * <p>Example for larger dataset: ./gradlew run -PrunArgs="file_level,50,500000"
+ *   Creates 50 files with 500K rows each = 25M total rows
  *
  * <p>Requires Spark 4.0 or 4.1 to be in the build (default: 4.1). Tables are stored under
  * ./build/warehouse by default. Use ICEBERG_WAREHOUSE env var to override.
@@ -59,6 +65,30 @@ public class CreateTableSpark {
     }
     String mode = args[0].trim().toLowerCase(Locale.ROOT);
     return mode.isEmpty() ? "file_level" : mode;
+  }
+
+  /** Number of data files to create. */
+  public static int numFilesFromArgs(String[] args) {
+    if (args == null || args.length < 2) {
+      return 10;
+    }
+    try {
+      return Integer.parseInt(args[1].trim());
+    } catch (NumberFormatException e) {
+      return 10;
+    }
+  }
+
+  /** Number of records per file. */
+  public static int recordsPerFileFromArgs(String[] args) {
+    if (args == null || args.length < 3) {
+      return 100_000;
+    }
+    try {
+      return Integer.parseInt(args[2].trim());
+    } catch (NumberFormatException e) {
+      return 100_000;
+    }
   }
 
   /** TBLPROPERTIES fragment for CREATE TABLE (no leading/trailing comma). */
@@ -83,6 +113,8 @@ public class CreateTableSpark {
 
   public static void main(String[] args) throws Exception {
     String bloomMode = bloomModeFromArgs(args);
+    int numDataFiles = numFilesFromArgs(args);
+    int recordsPerFile = recordsPerFileFromArgs(args);
 
     String warehouse =
         System.getenv("ICEBERG_WAREHOUSE") != null
@@ -118,19 +150,19 @@ public class CreateTableSpark {
 
     System.out.println("Created table: " + tableName);
     System.out.println("Bloom mode: " + bloomMode);
+    System.out.println("Configuration: " + numDataFiles + " files x " + recordsPerFile + " rows/file");
 
     // Configuration for dataset with INTERLEAVED IDs (overlapping ranges)
     // This ensures min/max stats CANNOT prune files, but bloom filters CAN
-    int numDataFiles = 10;
-    int recordsPerFile = 100_000; // 100K rows per file = 1M total rows
     long totalRecords = (long) numDataFiles * recordsPerFile;
 
     System.out.println("Generating " + totalRecords + " records across " + numDataFiles + " files...");
+    System.out.println("Estimated total data size: ~" + (totalRecords * 25 / 1_000_000) + " MB (before compression)");
     System.out.println("Using INTERLEAVED IDs so min/max stats cannot prune (bloom filters needed):");
-    System.out.println("  File 0: IDs 0, 10, 20, 30, ... (every 10th starting at 0)");
-    System.out.println("  File 1: IDs 1, 11, 21, 31, ... (every 10th starting at 1)");
+    System.out.println("  File 0: IDs 0, " + numDataFiles + ", " + (2*numDataFiles) + ", ... (every " + numDataFiles + "th starting at 0)");
+    System.out.println("  File 1: IDs 1, " + (numDataFiles+1) + ", " + (2*numDataFiles+1) + ", ... (every " + numDataFiles + "th starting at 1)");
     System.out.println("  ... etc.");
-    System.out.println("  All files have overlapping ranges: min~=0, max~=999,999");
+    System.out.println("  All files have overlapping ranges: min~=0, max~=" + (totalRecords - 1));
 
     StructType schema =
         DataTypes.createStructType(

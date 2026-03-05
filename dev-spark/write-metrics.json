@@ -1,5 +1,5 @@
 {
-  "totalDataFiles" : 10,
-  "puffinDiskSizeInBytes" : 5567040,
-  "puffinFooterSizeInBytes" : 4501
+  "totalDataFiles" : 50,
+  "puffinDiskSizeInBytes" : 60029,
+  "puffinFooterSizeInBytes" : 546
 }

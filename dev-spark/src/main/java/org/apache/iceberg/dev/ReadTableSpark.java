@@ -76,53 +76,66 @@ public class ReadTableSpark {
 
     spark.sparkContext().setLogLevel("ERROR");
 
+    // Get table metadata to determine file count
+    org.apache.iceberg.Table table = org.apache.iceberg.spark.Spark3Util.loadIcebergTable(spark, tableName);
+    String totalFilesStr = table.currentSnapshot().summary().get("total-data-files");
+    int numFiles = totalFilesStr != null ? Integer.parseInt(totalFilesStr) : 10;
+
     System.out.println("Reading table: " + tableName);
     System.out.println();
-    System.out.println("Data layout: 10 files with 100K rows each, INTERLEAVED IDs");
-    System.out.println("  File 0: IDs 0, 10, 20, 30, ... (every 10th starting at 0)");
-    System.out.println("  File 1: IDs 1, 11, 21, 31, ... (every 10th starting at 1)");
+    System.out.println("Data layout: " + numFiles + " files with INTERLEAVED IDs");
+    System.out.println("  File 0: IDs 0, " + numFiles + ", " + (2*numFiles) + ", ... (every " + numFiles + "th starting at 0)");
+    System.out.println("  File 1: IDs 1, " + (numFiles+1) + ", " + (2*numFiles+1) + ", ... (every " + numFiles + "th starting at 1)");
     System.out.println("  ... etc.");
-    System.out.println("  All files have min~=0, max~=999,999 -> min/max CANNOT prune!");
+    System.out.println("  All files have overlapping min/max ranges -> min/max CANNOT prune!");
     System.out.println("  Each ID exists in exactly ONE file -> bloom filters CAN prune!");
     System.out.println();
-    System.out.println("ID mapping: id % 10 = file number");
-    System.out.println("  id=50 -> file 0, id=51 -> file 1, id=55 -> file 5, etc.");
+    System.out.println("ID mapping: id % " + numFiles + " = file number");
+    System.out.println("  id=50 -> file " + (50 % numFiles) + ", id=51 -> file " + (51 % numFiles) + ", id=55 -> file " + (55 % numFiles) + ", etc.");
     System.out.println();
 
-    // Query 1: id = 50 — exists in file 0 only (50 % 10 = 0)
-    // With bloom filter: skip 9 files. Without bloom filter: skip 0 files (min/max useless)
+    // Query 1: id = 50 — exists in one file only (50 % numFiles)
+    // With bloom filter: skip (numFiles-1) files. Without bloom filter: skip 0 files (min/max useless)
+    int file50 = 50 % numFiles;
     MemoryTracker.Result mem1 =
         runQueryWithMemoryTracking(
             spark,
             tableName,
             "id = 50",
-            "id=50 is in file 0 (50%10=0). Bloom: skip 9. No bloom: skip 0");
+            "id=50 is in file " + file50 + ". Bloom: skip " + (numFiles - 1) + ". No bloom: skip 0");
 
     // Query 2: id = 9999999 — doesn't exist in any file
-    // With bloom filter: skip all 10. Without bloom: skip 0 (min/max sees all files match)
+    // With bloom filter: skip all files. Without bloom: skip 0 (min/max sees all files match)
     MemoryTracker.Result mem2 =
         runQueryWithMemoryTracking(
             spark,
             tableName,
             "id = 9999999",
-            "id=9999999 doesn't exist. Bloom: skip 10. No bloom: skip 0");
+            "id=9999999 doesn't exist. Bloom: skip " + numFiles + ". No bloom: skip 0");
 
-    // Query 3: id IN (50, 51, 55) — values in files 0, 1, and 5
-    // With bloom filter: skip 7 files. Without bloom: skip 0
+    // Query 3: id IN (50, 51, 55) — values in different files
+    int file51 = 51 % numFiles;
+    int file55 = 55 % numFiles;
+    java.util.Set<Integer> inFiles = new java.util.TreeSet<>();
+    inFiles.add(file50);
+    inFiles.add(file51);
+    inFiles.add(file55);
+    int skipIn = numFiles - inFiles.size();
     MemoryTracker.Result mem3 =
         runQueryWithMemoryTracking(
             spark,
             tableName,
             "id IN (50, 51, 55)",
-            "ids in files 0,1,5. Bloom: skip 7. No bloom: skip 0");
+            "ids in files " + inFiles + ". Bloom: skip " + skipIn + ". No bloom: skip 0");
 
-    // Query 4: id = 123456 — exists in file 6 (123456 % 10 = 6)
+    // Query 4: id = 123456 — exists in one file
+    int file123456 = 123456 % numFiles;
     MemoryTracker.Result mem4 =
         runQueryWithMemoryTracking(
             spark,
             tableName,
             "id = 123456",
-            "id=123456 is in file 6. Bloom: skip 9. No bloom: skip 0");
+            "id=123456 is in file " + file123456 + ". Bloom: skip " + (numFiles - 1) + ". No bloom: skip 0");
 
     // Print memory summary
     System.out.println("=== Memory Summary ===");
