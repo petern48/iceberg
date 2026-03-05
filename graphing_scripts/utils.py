@@ -68,7 +68,7 @@ def bf_color_legend_handles():
 # ---------------------------------------------------------------------------
 # Chart 1: Pruning (Read)
 # ---------------------------------------------------------------------------
-def plot_pruning_read(data: dict, out_dir: str, display_inline: bool = False):
+def plot_pruning_read_row_groups(data: dict, out_dir: str, display_inline: bool = False):
     """Stacked bar showing skipped vs read row groups."""
     sizes = data["dataset_sizes"]
     offsets, ticks, _ = group_positions(len(sizes), 3)
@@ -103,6 +103,43 @@ def plot_pruning_read(data: dict, out_dir: str, display_inline: bool = False):
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{int(x):,}"))
     fig.tight_layout()
     save(fig, out_dir, "1_pruning_read.png", display_inline=display_inline)
+
+
+def plot_pruning_read_datafiles(data: dict, out_dir: str, display_inline: bool = False):
+    """Stacked bar showing skipped vs read data files."""
+    sizes = data["dataset_sizes"]
+    offsets, ticks, _ = group_positions(len(sizes), 3)
+    bar_width = 0.22
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    legend_handles = []
+
+    for i, (key, color) in enumerate(zip(BF_KEYS, BF_COLORS)):
+        rows    = data["pruning_read"][key]
+        totals  = np.array([r["total_data_files"]   for r in rows], dtype=float)
+        skipped = np.array([r["skipped_data_files"] for r in rows], dtype=float)
+        read_df = totals - skipped
+
+        ax.bar(offsets[i], skipped, bar_width, color=color)
+        ax.bar(offsets[i], read_df, bar_width, bottom=skipped,
+               color=color, alpha=STACK_ALPHA_LIGHT)
+        legend_handles.append(mpatches.Patch(color=color, label=BF_LABELS[key]))
+
+    skip_patch = mpatches.Patch(facecolor="dimgray",                       label="Skipped (pruned)")
+    read_patch = mpatches.Patch(facecolor="dimgray", alpha=STACK_ALPHA_LIGHT, label="Read (not pruned)")
+
+    color_legend = ax.legend(handles=legend_handles,         loc="upper left",   title="Bloom Filter Type")
+    ax.add_artist(color_legend)
+    ax.legend(         handles=[skip_patch, read_patch], loc="upper center", title="Bar Segments")
+
+    ax.set_xticks(ticks)
+    ax.set_xticklabels(sizes)
+    ax.set_xlabel("Dataset Size")
+    ax.set_ylabel("Data Files")
+    ax.set_title("Pruning – Data Files Read vs Skipped (Read Path)")
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{int(x):,}"))
+    fig.tight_layout()
+    save(fig, out_dir, "1b_pruning_read_datafiles.png", display_inline=display_inline)
 
 
 # ---------------------------------------------------------------------------
@@ -350,7 +387,8 @@ def main():
     os.makedirs(args.out, exist_ok=True)
     print(f"Generating graphs → {args.out}/")
 
-    plot_pruning_read(data, args.out)
+    plot_pruning_read_row_groups(data, args.out)
+    plot_pruning_read_datafiles(data, args.out)
     plot_disk_storage(data, args.out)
     plot_memory_read(data, args.out)
     plot_memory_write(data, args.out)
