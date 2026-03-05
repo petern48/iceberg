@@ -49,10 +49,13 @@ def group_positions(n_groups: int, n_bars: int, bar_width: float = 0.22, gap: fl
     return offsets, tick_centers, group_width
 
 
-def save(fig, out_dir: str, name: str):
-    path = os.path.join(out_dir, name)
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    print(f"  Saved {path}")
+def save(fig, out_dir: str, name: str, display_inline: bool = False):
+    if display_inline:
+        plt.show()
+    else:
+        path = os.path.join(out_dir, name)
+        fig.savefig(path, dpi=150, bbox_inches="tight")
+        print(f"  Saved {path}")
     plt.close(fig)
 
 

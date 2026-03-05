@@ -14,7 +14,7 @@ from common import (
 )
 
 
-def plot(data: dict, out_dir: str):
+def plot(data: dict, out_dir: str, display_inline: bool = False):
     sizes = data["dataset_sizes"]
     offsets, ticks, _ = group_positions(len(sizes), 3)
     bar_width = 0.22
@@ -76,7 +76,7 @@ def plot(data: dict, out_dir: str):
     ax.set_ylabel("Time (seconds)")
     ax.set_title("Read Time Breakdown")
     fig.tight_layout()
-    save(fig, out_dir, "5_time_read.png")
+    save(fig, out_dir, "5_time_read.png", display_inline=display_inline)
 
 
 def main():

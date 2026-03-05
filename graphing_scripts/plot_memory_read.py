@@ -13,7 +13,7 @@ from common import (
 )
 
 
-def plot(data: dict, out_dir: str):
+def plot(data: dict, out_dir: str, display_inline: bool = False):
     sizes = data["dataset_sizes"]
     offsets, ticks, _ = group_positions(len(sizes), 3)
     bar_width = 0.22
@@ -31,7 +31,7 @@ def plot(data: dict, out_dir: str):
     ax.set_ylabel("Peak Memory Usage (MB)")
     ax.set_title("Peak Memory Usage – Read Path")
     fig.tight_layout()
-    save(fig, out_dir, "3_memory_read.png")
+    save(fig, out_dir, "3_memory_read.png", display_inline=display_inline)
 
 
 def main():

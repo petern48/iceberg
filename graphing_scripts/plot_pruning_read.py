@@ -14,7 +14,7 @@ from common import (
 )
 
 
-def plot(data: dict, out_dir: str):
+def plot(data: dict, out_dir: str, display_inline: bool = False):
     sizes = data["dataset_sizes"]
     offsets, ticks, _ = group_positions(len(sizes), 3)
     bar_width = 0.22
@@ -47,7 +47,7 @@ def plot(data: dict, out_dir: str):
     ax.set_title("Pruning – Row Groups Read vs Skipped (Read Path)")
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{int(x):,}"))
     fig.tight_layout()
-    save(fig, out_dir, "1_pruning_read.png")
+    save(fig, out_dir, "1_pruning_read.png", display_inline=display_inline)
 
 
 def main():
