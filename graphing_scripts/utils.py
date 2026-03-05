@@ -68,13 +68,15 @@ def bf_color_legend_handles():
 # ---------------------------------------------------------------------------
 # Chart 1: Pruning (Read)
 # ---------------------------------------------------------------------------
-def plot_pruning_read_row_groups(data: dict, out_dir: str, display_inline: bool = False):
+def plot_pruning_read_row_groups(data: dict, out_dir: str, display_inline: bool = False, ax=None):
     """Stacked bar showing skipped vs read row groups."""
     sizes = data["dataset_sizes"]
     offsets, ticks, _ = group_positions(len(sizes), 3)
     bar_width = 0.22
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    own_fig = ax is None
+    if own_fig:
+        fig, ax = plt.subplots(figsize=(10, 5))
     legend_handles = []
 
     for i, (key, color) in enumerate(zip(BF_KEYS, BF_COLORS)):
@@ -101,17 +103,20 @@ def plot_pruning_read_row_groups(data: dict, out_dir: str, display_inline: bool 
     ax.set_ylabel("Row Groups")
     ax.set_title("Pruning – Row Groups Read vs Skipped (Read Path)")
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{int(x):,}"))
-    fig.tight_layout()
-    save(fig, out_dir, "1_pruning_read.png", display_inline=display_inline)
+    if own_fig:
+        fig.tight_layout()
+        save(fig, out_dir, "1_pruning_read.png", display_inline=display_inline)
 
 
-def plot_pruning_read_datafiles(data: dict, out_dir: str, display_inline: bool = False):
+def plot_pruning_read_datafiles(data: dict, out_dir: str, display_inline: bool = False, ax=None):
     """Stacked bar showing skipped vs read data files."""
     sizes = data["dataset_sizes"]
     offsets, ticks, _ = group_positions(len(sizes), 3)
     bar_width = 0.22
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    own_fig = ax is None
+    if own_fig:
+        fig, ax = plt.subplots(figsize=(10, 5))
     legend_handles = []
 
     for i, (key, color) in enumerate(zip(BF_KEYS, BF_COLORS)):
@@ -138,8 +143,9 @@ def plot_pruning_read_datafiles(data: dict, out_dir: str, display_inline: bool =
     ax.set_ylabel("Data Files")
     ax.set_title("Pruning – Data Files Read vs Skipped (Read Path)")
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{int(x):,}"))
-    fig.tight_layout()
-    save(fig, out_dir, "1b_pruning_read_datafiles.png", display_inline=display_inline)
+    if own_fig:
+        fig.tight_layout()
+        save(fig, out_dir, "1b_pruning_read_datafiles.png", display_inline=display_inline)
 
 
 # ---------------------------------------------------------------------------
@@ -149,13 +155,15 @@ def _bytes_to_mb(b: float) -> float:
     return b / (1024 ** 2)
 
 
-def plot_disk_storage(data: dict, out_dir: str, display_inline: bool = False):
+def plot_disk_storage(data: dict, out_dir: str, display_inline: bool = False, ax=None):
     """Stacked bar showing puffin bytes + manifest overhead."""
     sizes = data["dataset_sizes"]
     offsets, ticks, _ = group_positions(len(sizes), 3)
     bar_width = 0.22
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    own_fig = ax is None
+    if own_fig:
+        fig, ax = plt.subplots(figsize=(10, 5))
     legend_handles = []
 
     for i, (key, color) in enumerate(zip(BF_KEYS, BF_COLORS)):
@@ -180,20 +188,23 @@ def plot_disk_storage(data: dict, out_dir: str, display_inline: bool = False):
     ax.set_xlabel("Dataset Size")
     ax.set_ylabel("Additional Disk Usage (MB)")
     ax.set_title("Disk Storage Added by Bloom Filters")
-    fig.tight_layout()
-    save(fig, out_dir, "2_disk_storage.png", display_inline=display_inline)
+    if own_fig:
+        fig.tight_layout()
+        save(fig, out_dir, "2_disk_storage.png", display_inline=display_inline)
 
 
 # ---------------------------------------------------------------------------
 # Chart 3: Memory Usage (Read)
 # ---------------------------------------------------------------------------
-def plot_memory_read(data: dict, out_dir: str, display_inline: bool = False):
+def plot_memory_read(data: dict, out_dir: str, display_inline: bool = False, ax=None):
     """Peak memory per bloom filter type."""
     sizes = data["dataset_sizes"]
     offsets, ticks, _ = group_positions(len(sizes), 3)
     bar_width = 0.22
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    own_fig = ax is None
+    if own_fig:
+        fig, ax = plt.subplots(figsize=(10, 5))
 
     for i, (key, color) in enumerate(zip(BF_KEYS, BF_COLORS)):
         values = np.array(data["memory_read_mb"][key], dtype=float)
@@ -205,20 +216,23 @@ def plot_memory_read(data: dict, out_dir: str, display_inline: bool = False):
     ax.set_xlabel("Dataset Size")
     ax.set_ylabel("Peak Memory Usage (MB)")
     ax.set_title("Peak Memory Usage – Read Path")
-    fig.tight_layout()
-    save(fig, out_dir, "3_memory_read.png", display_inline=display_inline)
+    if own_fig:
+        fig.tight_layout()
+        save(fig, out_dir, "3_memory_read.png", display_inline=display_inline)
 
 
 # ---------------------------------------------------------------------------
 # Chart 4: Memory Usage (Write)
 # ---------------------------------------------------------------------------
-def plot_memory_write(data: dict, out_dir: str, display_inline: bool = False):
+def plot_memory_write(data: dict, out_dir: str, display_inline: bool = False, ax=None):
     """Peak memory per bloom filter type."""
     sizes = data["dataset_sizes"]
     offsets, ticks, _ = group_positions(len(sizes), 3)
     bar_width = 0.22
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    own_fig = ax is None
+    if own_fig:
+        fig, ax = plt.subplots(figsize=(10, 5))
 
     for i, (key, color) in enumerate(zip(BF_KEYS, BF_COLORS)):
         values = np.array(data["memory_write_mb"][key], dtype=float)
@@ -230,20 +244,23 @@ def plot_memory_write(data: dict, out_dir: str, display_inline: bool = False):
     ax.set_xlabel("Dataset Size")
     ax.set_ylabel("Peak Memory Usage (MB)")
     ax.set_title("Peak Memory Usage – Write Path")
-    fig.tight_layout()
-    save(fig, out_dir, "4_memory_write.png", display_inline=display_inline)
+    if own_fig:
+        fig.tight_layout()
+        save(fig, out_dir, "4_memory_write.png", display_inline=display_inline)
 
 
 # ---------------------------------------------------------------------------
 # Chart 5: Time (Read)
 # ---------------------------------------------------------------------------
-def plot_time_read(data: dict, out_dir: str, display_inline: bool = False):
+def plot_time_read(data: dict, out_dir: str, display_inline: bool = False, ax=None):
     """Stacked bar: metadata + puffin + data read time."""
     sizes = data["dataset_sizes"]
     offsets, ticks, _ = group_positions(len(sizes), 3)
     bar_width = 0.22
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    own_fig = ax is None
+    if own_fig:
+        fig, ax = plt.subplots(figsize=(10, 5))
 
     has_other = False
     for i, key in enumerate(BF_KEYS):
@@ -299,20 +316,23 @@ def plot_time_read(data: dict, out_dir: str, display_inline: bool = False):
     ax.set_xlabel("Dataset Size")
     ax.set_ylabel("Time (seconds)")
     ax.set_title("Read Time Breakdown")
-    fig.tight_layout()
-    save(fig, out_dir, "5_time_read.png", display_inline=display_inline)
+    if own_fig:
+        fig.tight_layout()
+        save(fig, out_dir, "5_time_read.png", display_inline=display_inline)
 
 
 # ---------------------------------------------------------------------------
 # Chart 6: Time (Write)
 # ---------------------------------------------------------------------------
-def plot_time_write(data: dict, out_dir: str, display_inline: bool = False):
+def plot_time_write(data: dict, out_dir: str, display_inline: bool = False, ax=None):
     """Stacked bar: metadata + puffin + data write time."""
     sizes = data["dataset_sizes"]
     offsets, ticks, _ = group_positions(len(sizes), 3)
     bar_width = 0.22
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    own_fig = ax is None
+    if own_fig:
+        fig, ax = plt.subplots(figsize=(10, 5))
 
     has_other = False
     for i, key in enumerate(BF_KEYS):
@@ -368,8 +388,43 @@ def plot_time_write(data: dict, out_dir: str, display_inline: bool = False):
     ax.set_xlabel("Dataset Size")
     ax.set_ylabel("Time (seconds)")
     ax.set_title("Write Time Breakdown")
+    if own_fig:
+        fig.tight_layout()
+        save(fig, out_dir, "6_time_write.png", display_inline=display_inline)
+
+
+# ---------------------------------------------------------------------------
+# Grid layout: all charts in one figure
+# ---------------------------------------------------------------------------
+def plot_all_grid(data: dict, out_dir: str, display_inline: bool = False):
+    """Plot all charts in a grid layout:
+    Row 1: read_row_groups, read_datafiles
+    Row 2: time_write, time_read
+    Row 3: memory_write, memory_read
+    Row 4: disk_storage (full width)
+    """
+    from matplotlib.gridspec import GridSpec
+
+    fig = plt.figure(figsize=(14, 16))
+    gs = GridSpec(4, 2, figure=fig, hspace=0.4, wspace=0.3)
+
+    # Row 1: read_row_groups, read_datafiles
+    plot_pruning_read_row_groups(data, out_dir, ax=fig.add_subplot(gs[0, 0]))
+    plot_pruning_read_datafiles(data, out_dir, ax=fig.add_subplot(gs[0, 1]))
+
+    # Row 2: time_write, time_read
+    plot_time_write(data, out_dir, ax=fig.add_subplot(gs[1, 0]))
+    plot_time_read(data, out_dir, ax=fig.add_subplot(gs[1, 1]))
+
+    # Row 3: memory_write, memory_read
+    plot_memory_write(data, out_dir, ax=fig.add_subplot(gs[2, 0]))
+    plot_memory_read(data, out_dir, ax=fig.add_subplot(gs[2, 1]))
+
+    # Row 4: disk_storage (full width)
+    plot_disk_storage(data, out_dir, ax=fig.add_subplot(gs[3, :]))
+
     fig.tight_layout()
-    save(fig, out_dir, "6_time_write.png", display_inline=display_inline)
+    save(fig, out_dir, "all_grid.png", display_inline=display_inline)
 
 
 # ---------------------------------------------------------------------------
