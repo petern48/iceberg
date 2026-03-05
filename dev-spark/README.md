@@ -70,7 +70,7 @@ Optional: pass a table name as argument:
 
 Runs CreateTableSpark + ReadTableSpark for multiple dataset sizes and bloom modes, then writes `graphing_scripts/bloom_filter_results.json` for the plotting scripts.
 
-**Dataset sizes:**
+**Dataset sizes** (edit `DATASET_SIZES` in `run_all_experiments.py` to add or change):
 
 - `small`: 10 files × 100K rows = 1M total rows
 - `large`: 50 files × 500K rows = 25M total rows

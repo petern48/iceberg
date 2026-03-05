@@ -21,17 +21,31 @@ def plot(data: dict, out_dir: str):
 
     fig, ax = plt.subplots(figsize=(10, 5))
 
+    has_other = False
     for i, key in enumerate(BF_KEYS):
-        rows     = data["time_read_ms"][key]
-        meta_s   = np.array([r["metadata_ms"] for r in rows], dtype=float) / 1000
-        puffin_s = np.array([r["puffin_ms"]   for r in rows], dtype=float) / 1000
-        data_s   = np.array([r["data_ms"]      for r in rows], dtype=float) / 1000
+        rows = data["time_read_ms"][key]
+        meta_s = np.array([r.get("metadata_ms", 0) for r in rows], dtype=float) / 1000
+        puffin_s = np.array([r.get("puffin_ms", 0) for r in rows], dtype=float) / 1000
+        data_s = np.array([r.get("data_ms", 0) for r in rows], dtype=float) / 1000
+        total_s = np.array(
+            [r.get("total_ms") if r.get("total_ms") is not None else (meta_s[j] + puffin_s[j] + data_s[j]) * 1000
+             for j, r in enumerate(rows)],
+            dtype=float,
+        ) / 1000
+        stack_sum = meta_s + puffin_s + data_s
+        other_s = np.maximum(0, total_s - stack_sum)
+        if np.any(other_s > 0):
+            has_other = True
 
-        ax.bar(offsets[i], meta_s,   bar_width, color=STACK_COLORS["metadata"])
-        ax.bar(offsets[i], puffin_s, bar_width, bottom=meta_s,
-               color=STACK_COLORS["puffin"])
-        ax.bar(offsets[i], data_s,   bar_width, bottom=meta_s + puffin_s,
-               color=STACK_COLORS["data"])
+        ax.bar(offsets[i], meta_s, bar_width, color=STACK_COLORS["metadata"])
+        ax.bar(offsets[i], puffin_s, bar_width, bottom=meta_s, color=STACK_COLORS["puffin"])
+        ax.bar(offsets[i], data_s, bar_width, bottom=meta_s + puffin_s, color=STACK_COLORS["data"])
+        if np.any(other_s > 0):
+            ax.bar(
+                offsets[i], other_s, bar_width,
+                bottom=meta_s + puffin_s + data_s,
+                color="lightgray",
+            )
 
         hatch = ["", "//", "xx"][i]
         for container in ax.containers[-3:]:
@@ -44,6 +58,8 @@ def plot(data: dict, out_dir: str):
         mpatches.Patch(color=STACK_COLORS["puffin"],   label="Puffin file read"),
         mpatches.Patch(color=STACK_COLORS["data"],     label="Data file read"),
     ]
+    if has_other:
+        seg_patches.append(mpatches.Patch(color="lightgray", label="Other (total read duration)"))
     hatch_patches = [
         mpatches.Patch(facecolor="lightgrey", hatch="",   edgecolor="grey", label=BF_LABELS["no_bloom_filter"]),
         mpatches.Patch(facecolor="lightgrey", hatch="//", edgecolor="grey", label=BF_LABELS["row_group_bloom_filter"]),

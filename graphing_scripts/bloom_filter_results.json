@@ -1,95 +1,153 @@
 {
   "dataset_sizes": [
-    "small"
+    "small",
+    "large"
   ],
   "pruning_read": {
     "no_bloom_filter": [
       {
         "total_row_groups": 0,
-        "skipped_row_groups": 0,
+        "skipped_row_groups": 10,
         "total_data_files": 10,
-        "skipped_data_files": 8
+        "skipped_data_files": 3
+      },
+      {
+        "total_row_groups": 0,
+        "skipped_row_groups": 10,
+        "total_data_files": 50,
+        "skipped_data_files": 3
       }
     ],
     "row_group_bloom_filter": [
       {
         "total_row_groups": 0,
-        "skipped_row_groups": 0,
+        "skipped_row_groups": 10,
         "total_data_files": 10,
-        "skipped_data_files": 8
+        "skipped_data_files": 3
+      },
+      {
+        "total_row_groups": 0,
+        "skipped_row_groups": 10,
+        "total_data_files": 50,
+        "skipped_data_files": 3
       }
     ],
     "file_level_bloom_filter": [
       {
         "total_row_groups": 0,
-        "skipped_row_groups": 0,
+        "skipped_row_groups": 10,
         "total_data_files": 10,
-        "skipped_data_files": 8
+        "skipped_data_files": 3
+      },
+      {
+        "total_row_groups": 0,
+        "skipped_row_groups": 10,
+        "total_data_files": 50,
+        "skipped_data_files": 3
       }
     ]
   },
   "disk_storage_bytes": {
     "no_bloom_filter": [
       {
-        "puffin_bytes": 2192,
+        "puffin_bytes": 62336,
+        "manifest_overhead_bytes": 0
+      },
+      {
+        "puffin_bytes": 60029,
         "manifest_overhead_bytes": 0
       }
     ],
     "row_group_bloom_filter": [
       {
-        "puffin_bytes": 2192,
+        "puffin_bytes": 62336,
+        "manifest_overhead_bytes": 0
+      },
+      {
+        "puffin_bytes": 60029,
         "manifest_overhead_bytes": 0
       }
     ],
     "file_level_bloom_filter": [
       {
-        "puffin_bytes": 11804,
+        "puffin_bytes": 5566880,
+        "manifest_overhead_bytes": 0
+      },
+      {
+        "puffin_bytes": 53637820,
         "manifest_overhead_bytes": 0
       }
     ]
   },
   "memory_read_mb": {
     "no_bloom_filter": [
-      0
+      131.04546,
+      499.46774
     ],
     "row_group_bloom_filter": [
-      0
+      281.35812,
+      440.53394
     ],
     "file_level_bloom_filter": [
-      0
+      131.98672,
+      609.0768
     ]
   },
   "memory_write_mb": {
     "no_bloom_filter": [
+      0,
       0
     ],
     "row_group_bloom_filter": [
+      0,
       0
     ],
     "file_level_bloom_filter": [
+      0,
       0
     ]
   },
   "time_read_ms": {
     "no_bloom_filter": [
       {
-        "metadata_ms": 0,
-        "puffin_ms": 0,
-        "data_ms": 0
+        "metadata_ms": 5700,
+        "puffin_ms": 12300,
+        "data_ms": 20100,
+        "total_ms": 217
+      },
+      {
+        "metadata_ms": 5700,
+        "puffin_ms": 12300,
+        "data_ms": 20100,
+        "total_ms": 892
       }
     ],
     "row_group_bloom_filter": [
       {
-        "metadata_ms": 0,
-        "puffin_ms": 0,
-        "data_ms": 0
+        "metadata_ms": 5700,
+        "puffin_ms": 12300,
+        "data_ms": 20100,
+        "total_ms": 168
+      },
+      {
+        "metadata_ms": 5700,
+        "puffin_ms": 12300,
+        "data_ms": 20100,
+        "total_ms": 338
       }
     ],
     "file_level_bloom_filter": [
       {
-        "metadata_ms": 0,
-        "puffin_ms": 0,
-        "data_ms": 0
+        "metadata_ms": 5700,
+        "puffin_ms": 12300,
+        "data_ms": 20100,
+        "total_ms": 202
+      },
+      {
+        "metadata_ms": 5700,
+        "puffin_ms": 12300,
+        "data_ms": 20100,
+        "total_ms": 374
       }
     ]
   },
@@ -98,21 +156,42 @@
       {
         "metadata_ms": 0,
         "puffin_ms": 0,
-        "data_ms": 0
+        "data_ms": 0,
+        "total_ms": null
+      },
+      {
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0,
+        "total_ms": null
       }
     ],
     "row_group_bloom_filter": [
       {
         "metadata_ms": 0,
         "puffin_ms": 0,
-        "data_ms": 0
+        "data_ms": 0,
+        "total_ms": null
+      },
+      {
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0,
+        "total_ms": null
       }
     ],
     "file_level_bloom_filter": [
       {
         "metadata_ms": 0,
         "puffin_ms": 0,
-        "data_ms": 0
+        "data_ms": 0,
+        "total_ms": null
+      },
+      {
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0,
+        "total_ms": null
       }
     ]
   }

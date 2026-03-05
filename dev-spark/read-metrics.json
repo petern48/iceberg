@@ -1,9 +1,9 @@
 {
   "skippedDataFiles" : 3,
   "skippedRowGroups" : 10,
-  "maxMemoryUsage" : 349.95303,
+  "maxMemoryUsage" : 609.0768,
   "puffinReadDuration" : 12.3,
   "manifestReadDuration" : 5.7,
   "datafileReadDuration" : 20.1,
-  "totalReadDuration" : 702.5029
+  "totalReadDuration" : 374.47186
 }

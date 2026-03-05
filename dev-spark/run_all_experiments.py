@@ -26,8 +26,11 @@ OUTPUT_JSON = GRAPHING / "bloom_filter_results.json"
 
 # Bloom modes: none, row_group (Parquet only), file_level (Parquet + Puffin)
 BLOOM_MODES = ["none", "row_group", "file_level"]
-# Dataset size label for this run (one size = one point per chart)
-DATASET_SIZE = "small"
+# Dataset sizes: (label, num_files, records_per_file). Add more for bigger experiments.
+DATASET_SIZES = [
+    ("small", 10, 100_000),       # 10 files x 100K rows = 1M rows
+    ("large", 50, 500_000),       # 50 files x 500K rows = 25M rows
+]
 
 
 def run_gradle(task: str, run_args: Optional[str] = None) -> None:
@@ -58,14 +61,20 @@ def _int(v: Any, default: int = 0) -> int:
     return int(v)
 
 
-def build_results(experiments: List[Tuple[str, Dict[str, Any], Dict[str, Any]]]) -> Dict[str, Any]:
+def build_results(
+    experiments: List[Tuple[str, str, Dict[str, Any], Dict[str, Any]]],
+    dataset_size_labels: List[str],
+) -> Dict[str, Any]:
     """Build bloom_filter_results.json in the format expected by graphing_scripts."""
     bf_key = {
         "none": "no_bloom_filter",
         "row_group": "row_group_bloom_filter",
         "file_level": "file_level_bloom_filter",
     }
-    dataset_sizes = [DATASET_SIZE]
+    # Index by (mode, size_label) for lookup
+    by_mode_size: Dict[Tuple[str, str], Tuple[Dict[str, Any], Dict[str, Any]]] = {}
+    for mode, size_label, w, r in experiments:
+        by_mode_size[(mode, size_label)] = (w, r)
 
     pruning_read = {k: [] for k in bf_key.values()}
     disk_storage_bytes = {k: [] for k in bf_key.values()}
@@ -74,38 +83,51 @@ def build_results(experiments: List[Tuple[str, Dict[str, Any], Dict[str, Any]]])
     time_read_ms = {k: [] for k in bf_key.values()}
     time_write_ms = {k: [] for k in bf_key.values()}
 
-    for mode, w, r in experiments:
-        key = bf_key[mode]
-        # Pruning: totals from write, skipped from read (use read totalRowGroups if write has none)
-        total_rg = w.get("totalRowGroups") if w.get("totalRowGroups") is not None else r.get("totalRowGroups")
-        pruning_read[key].append({
-            "total_row_groups": _int(total_rg),
-            "skipped_row_groups": _int(r.get("skippedRowGroups")),
-            "total_data_files": _int(w.get("totalDataFiles")),
-            "skipped_data_files": _int(r.get("skippedDataFiles")),
-        })
-        disk_storage_bytes[key].append({
-            "puffin_bytes": _int(w.get("puffinDiskSizeInBytes")),
-            "manifest_overhead_bytes": 0,
-        })
-        memory_read_mb[key].append(_n(r.get("maxMemoryUsage")))
-        memory_write_mb[key].append(_n(w.get("maxMemoryUsage")))
-        # Time (ms): durations in JSON are seconds when present
-        def sec_to_ms(x):
-            return round(_n(x) * 1000)
-        time_read_ms[key].append({
-            "metadata_ms": sec_to_ms(r.get("manifestReadDuration")),
-            "puffin_ms": sec_to_ms(r.get("puffinReadDuration")),
-            "data_ms": sec_to_ms(r.get("datafileReadDuration")),
-        })
-        time_write_ms[key].append({
-            "metadata_ms": sec_to_ms(w.get("manifestWriteDuration")),
-            "puffin_ms": sec_to_ms(w.get("puffinWriteDuration")),
-            "data_ms": sec_to_ms(w.get("datafileWriteDuration")),
-        })
+    def sec_to_ms(x: Any) -> int:
+        return round(_n(x) * 1000)
+
+    for key in bf_key.values():
+        mode = next(m for m, k in bf_key.items() if k == key)
+        for size_label in dataset_size_labels:
+            pair = by_mode_size.get((mode, size_label))
+            if not pair:
+                continue
+            w, r = pair
+            total_rg = w.get("totalRowGroups") if w.get("totalRowGroups") is not None else r.get("totalRowGroups")
+            pruning_read[key].append({
+                "total_row_groups": _int(total_rg),
+                "skipped_row_groups": _int(r.get("skippedRowGroups")),
+                "total_data_files": _int(w.get("totalDataFiles")),
+                "skipped_data_files": _int(r.get("skippedDataFiles")),
+            })
+            disk_storage_bytes[key].append({
+                "puffin_bytes": _int(w.get("puffinDiskSizeInBytes")),
+                "manifest_overhead_bytes": 0,
+            })
+            memory_read_mb[key].append(_n(r.get("maxMemoryUsage")))
+            memory_write_mb[key].append(_n(w.get("maxMemoryUsage")))
+            # Read durations: totalReadDuration from ReadTableSpark is in ms; others may be sec
+            total_read_ms = r.get("totalReadDuration")
+            if total_read_ms is not None:
+                total_read_ms = round(_n(total_read_ms))
+            time_read_ms[key].append({
+                "metadata_ms": sec_to_ms(r.get("manifestReadDuration")),
+                "puffin_ms": sec_to_ms(r.get("puffinReadDuration")),
+                "data_ms": sec_to_ms(r.get("datafileReadDuration")),
+                "total_ms": total_read_ms,
+            })
+            total_write_ms = w.get("totalWriteDuration")
+            if total_write_ms is not None:
+                total_write_ms = round(sec_to_ms(total_write_ms))
+            time_write_ms[key].append({
+                "metadata_ms": sec_to_ms(w.get("manifestWriteDuration")),
+                "puffin_ms": sec_to_ms(w.get("puffinWriteDuration")),
+                "data_ms": sec_to_ms(w.get("datafileWriteDuration")),
+                "total_ms": total_write_ms,
+            })
 
     return {
-        "dataset_sizes": dataset_sizes,
+        "dataset_sizes": dataset_size_labels,
         "pruning_read": pruning_read,
         "disk_storage_bytes": disk_storage_bytes,
         "memory_read_mb": memory_read_mb,
@@ -116,32 +138,38 @@ def build_results(experiments: List[Tuple[str, Dict[str, Any], Dict[str, Any]]])
 
 
 def main() -> None:
-    print("Running experiments (CreateTableSpark + ReadTableSpark) for each bloom mode...")
+    dataset_labels = [label for label, _nf, _rpf in DATASET_SIZES]
+    print(
+        "Running experiments (CreateTableSpark + ReadTableSpark) for each bloom mode and dataset size..."
+    )
+    print(f"Dataset sizes: {dataset_labels}")
     experiments = []
 
-    for mode in BLOOM_MODES:
-        print(f"\n--- Bloom mode: {mode} ---")
-        run_gradle(":iceberg-dev-spark:run", run_args=mode)
-        write_path = DEV_SPARK / "write-metrics.json"
-        if not write_path.exists():
-            print(f"  WARNING: {write_path} not found after CreateTableSpark")
-            continue
-        write_metrics = load_json(write_path)
+    for size_label, num_files, records_per_file in DATASET_SIZES:
+        for mode in BLOOM_MODES:
+            run_args = f"{mode},{num_files},{records_per_file}"
+            print(f"\n--- Dataset: {size_label} ({num_files} files x {records_per_file} rows) | Bloom: {mode} ---")
+            run_gradle(":iceberg-dev-spark:run", run_args=run_args)
+            write_path = DEV_SPARK / "write-metrics.json"
+            if not write_path.exists():
+                print(f"  WARNING: {write_path} not found after CreateTableSpark")
+                continue
+            write_metrics = load_json(write_path)
 
-        run_gradle(":iceberg-dev-spark:runReadTable")
-        read_path = DEV_SPARK / "read-metrics.json"
-        if not read_path.exists():
-            print(f"  WARNING: {read_path} not found after ReadTableSpark")
-            continue
-        read_metrics = load_json(read_path)
+            run_gradle(":iceberg-dev-spark:runReadTable")
+            read_path = DEV_SPARK / "read-metrics.json"
+            if not read_path.exists():
+                print(f"  WARNING: {read_path} not found after ReadTableSpark")
+                continue
+            read_metrics = load_json(read_path)
 
-        experiments.append((mode, write_metrics, read_metrics))
+            experiments.append((mode, size_label, write_metrics, read_metrics))
 
     if not experiments:
         print("No experiments collected. Ensure write-metrics.json and read-metrics.json are produced.")
         sys.exit(1)
 
-    results = build_results(experiments)
+    results = build_results(experiments, dataset_labels)
     GRAPHING.mkdir(parents=True, exist_ok=True)
     with OUTPUT_JSON.open("w") as f:
         json.dump(results, f, indent=2)
