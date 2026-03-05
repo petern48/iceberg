@@ -134,6 +134,7 @@ public class ReadTableSpark {
     metrics.manifestReadDuration = 5.7f;
     metrics.datafileReadDuration = 20.1f;
 
+    // ReadMetrics metrics = collectReadMetrics(lastDf);
     exportReadMetrics(metrics);
 
     spark.stop();
@@ -142,9 +143,6 @@ public class ReadTableSpark {
   private static void exportReadMetrics(ReadMetrics metrics) throws IOException {
     ObjectMapper mapper = new ObjectMapper();
     mapper.enable(SerializationFeature.INDENT_OUTPUT);
-
-    // TODO: parametrize the file name using input arguments
-    // This should be write a file at spark-dev/read-metrics.json
     String outputPath = "read-metrics.json";
     mapper.writeValue(Paths.get(outputPath).toFile(), metrics);
     System.out.println("Read Metrics exported to " + outputPath);

@@ -1,14 +1,24 @@
 package org.apache.iceberg.dev;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class ReadMetrics {
-    // Counts
-    public int skippedRowGroups;  // note get totalRowGroups from WriteMetrics
-    public int skippedDataFiles;  // note get totalDataFiles from WriteMetrics
-    // Memory Usage
-    public float maxMemoryUsage;
-    // Durations
-    public float puffinReadDuration;
-    public float manifestReadDuration;
-    public float datafileReadDuration;
-    public float totalReadDuration;
+  // Counts (from scan metrics)
+  public Integer totalScanDataFiles;
+  public Integer resultDataFiles;
+  public Integer skippedDataFiles;
+  public Long totalDataFileSizeBytes;
+  public Integer totalRowGroups;
+  public Integer skippedRowGroups;
+  public Long puffinStatsFileSizeBytes;
+  public Long puffinStatsFooterSizeBytes;
+  public Integer numSplits;
+  public Long numOutputRows;
+  // Memory / durations — not provided by Spark scan metrics
+  public Float maxMemoryUsage;
+  public Float puffinReadDuration;
+  public Float manifestReadDuration;
+  public Float datafileReadDuration;
+  public Float totalReadDuration;
 }

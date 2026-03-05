@@ -1,11 +1,5 @@
 {
-  "totalRowGroups" : 10,
-  "totalDataFiles" : 3,
-  "maxMemoryUsage" : 512.5,
-  "puffinWriteDuration" : 12.3,
-  "manifestWriteDuration" : 5.7,
-  "datafileWriteDuration" : 20.1,
-  "totalWriteDuration" : 38.1,
-  "puffinDiskSizeInBytes" : 1000.0,
-  "puffinFooterSizeInBytes" : 100.0
+  "totalDataFiles" : 10,
+  "puffinDiskSizeInBytes" : 62336,
+  "puffinFooterSizeInBytes" : 544
 }

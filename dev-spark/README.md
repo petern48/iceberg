@@ -8,10 +8,18 @@ Spark scripts for local Iceberg table development using a Hadoop catalog.
 
 ### CreateTableSpark
 
-Creates Iceberg tables, writes data, enables bloom filters, and computes NDV statistics via Puffin files.
+Creates Iceberg tables, writes data, optionally enables bloom filters, and computes NDV statistics via Puffin files.
 
 ```bash
 ./gradlew :iceberg-dev-spark:run
+```
+
+Optional bloom mode (first arg): `none`, `row_group`, or `file_level` (default).
+
+```bash
+./gradlew :iceberg-dev-spark:run -PrunArgs=none
+./gradlew :iceberg-dev-spark:run -PrunArgs=row_group
+./gradlew :iceberg-dev-spark:run -PrunArgs=file_level
 ```
 
 Creates `local.default.sample_table_spark` with:
@@ -38,6 +46,22 @@ Optional: pass a table name as argument:
 | Variable | Description |
 |----------|-------------|
 | `ICEBERG_WAREHOUSE` | Override warehouse location (default: `file:./build/warehouse`) |
+
+### Run all experiments (one script)
+
+Runs CreateTableSpark + ReadTableSpark for each bloom mode (`none`, `row_group`, `file_level`), then writes `graphing_scripts/bloom_filter_results.json` for the plotting scripts.
+
+From repo root:
+
+```bash
+python dev-spark/run_all_experiments.py
+```
+
+Then generate graphs:
+
+```bash
+python graphing_scripts/plot_all.py
+```
 
 ## Build
 

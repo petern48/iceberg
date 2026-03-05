@@ -22,6 +22,8 @@ package org.apache.iceberg.dev;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
+import java.io.IOException;
+import java.util.Locale;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,13 +45,45 @@ import org.apache.iceberg.dev.WriteMetrics;
  * Hadoop catalog, writes data, enables bloom filters, and computes NDV statistics.
  *
  * <p>Run with: ./gradlew :iceberg-dev-spark:run
+ * <p>Optional args: [bloom_mode] — one of "none", "row_group", "file_level" (default: "file_level").
  *
  * <p>Requires Spark 4.0 or 4.1 to be in the build (default: 4.1). Tables are stored under
  * ./build/warehouse by default. Use ICEBERG_WAREHOUSE env var to override.
  */
 public class CreateTableSpark {
 
+  /** Bloom mode: none, row_group (Parquet only), file_level (Parquet + Puffin file-level). */
+  public static String bloomModeFromArgs(String[] args) {
+    if (args == null || args.length == 0) {
+      return "file_level";
+    }
+    String mode = args[0].trim().toLowerCase(Locale.ROOT);
+    return mode.isEmpty() ? "file_level" : mode;
+  }
+
+  /** TBLPROPERTIES fragment for CREATE TABLE (no leading/trailing comma). */
+  public static String tblPropertiesForBloomMode(String bloomMode) {
+    switch (bloomMode) {
+      case "none":
+        return "";
+      case "row_group":
+        return "TBLPROPERTIES ("
+            + "'write.parquet.bloom-filter-enabled.column.id'='true',"
+            + "'write.parquet.bloom-filter-enabled.column.data'='true'"
+            + ")";
+      case "file_level":
+      default:
+        return "TBLPROPERTIES ("
+            + "'write.parquet.bloom-filter-enabled.column.id'='true',"
+            + "'write.parquet.bloom-filter-enabled.column.data'='true',"
+            + "'write.puffin.bloom-filter-enabled.column.id'='true'"
+            + ")";
+    }
+  }
+
   public static void main(String[] args) throws Exception {
+    String bloomMode = bloomModeFromArgs(args);
+
     String warehouse =
         System.getenv("ICEBERG_WAREHOUSE") != null
             ? System.getenv("ICEBERG_WAREHOUSE")
@@ -73,19 +107,17 @@ public class CreateTableSpark {
     spark.sql("CREATE NAMESPACE IF NOT EXISTS default");
     spark.sql("DROP TABLE IF EXISTS " + tableName);
 
-    spark.sql(
+    String tblProps = tblPropertiesForBloomMode(bloomMode);
+    String createSql =
         "CREATE TABLE "
             + tableName
             + " (id BIGINT, data STRING, created_at TIMESTAMP) "
             + "USING iceberg "
-            + "TBLPROPERTIES ("
-            + "'write.parquet.bloom-filter-enabled.column.id'='true',"
-            + "'write.parquet.bloom-filter-enabled.column.data'='true',"
-            + "'write.puffin.bloom-filter-enabled.column.id'='true'"
-            + ")");
+            + (tblProps.isEmpty() ? "" : " " + tblProps);
+    spark.sql(createSql);
 
     System.out.println("Created table: " + tableName);
-    System.out.println("Bloom filters: enabled for id, data");
+    System.out.println("Bloom mode: " + bloomMode);
 
     // Configuration for larger dataset with distinct ID ranges per file
     int numDataFiles = 10;
@@ -157,32 +189,21 @@ public class CreateTableSpark {
     }
 
     WriteMetrics metrics = new WriteMetrics();
-    metrics.totalRowGroups = 10;
-    metrics.totalDataFiles = 3;
-    metrics.maxMemoryUsage = 512.5f;
-    metrics.puffinWriteDuration = 12.3f;
-    metrics.manifestWriteDuration = 5.7f;
-    metrics.datafileWriteDuration = 20.1f;
-    metrics.totalWriteDuration = 38.1f;
-    metrics.puffinDiskSizeInBytes = 1000.0f;
-    metrics.puffinFooterSizeInBytes = 100.0f;
+    metrics.totalDataFiles = numDataFiles;
+    metrics.puffinDiskSizeInBytes = result.statisticsFile().fileSizeInBytes();
+    metrics.puffinFooterSizeInBytes = result.statisticsFile().fileFooterSizeInBytes();
+    // totalRowGroups, maxMemoryUsage, *Duration — not available from write path; leave null
 
     exportWriteMetrics(metrics);
 
     spark.stop();
   }
 
-  private static void exportWriteMetrics(WriteMetrics metrics) throws Exception {
-    // Export fake data .json data for development purposes
-
+  private static void exportWriteMetrics(WriteMetrics metrics) throws IOException {
     ObjectMapper mapper = new ObjectMapper();
     mapper.enable(SerializationFeature.INDENT_OUTPUT);
-
-    // TODO: parametrize the file name using input arguments
-    // This should be write a file at spark-dev/write-metrics.json
     String outputPath = "write-metrics.json";
     mapper.writeValue(Paths.get(outputPath).toFile(), metrics);
-    System.out.println("(Fake) Read Metrics exported to " + outputPath);
-
+    System.out.println("Write metrics exported to " + outputPath);
   }
 }
