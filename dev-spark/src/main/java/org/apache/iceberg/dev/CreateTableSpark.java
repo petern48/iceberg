@@ -103,10 +103,12 @@ public class CreateTableSpark {
             + ")";
       case "file_level":
       default:
+        // Enable both row group-level and file-level bloom filters
         return "TBLPROPERTIES ("
             + "'write.parquet.bloom-filter-enabled.column.id'='true',"
             + "'write.parquet.bloom-filter-enabled.column.data'='true',"
-            + "'write.puffin.bloom-filter-enabled.column.id'='true'"
+            + "'write.puffin.bloom-filter-enabled.column.id'='true',"
+            + "'write.puffin.bloom-filter-enabled.column.data'='true'"
             + ")";
     }
   }
