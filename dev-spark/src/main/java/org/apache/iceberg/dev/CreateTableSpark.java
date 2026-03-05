@@ -23,10 +23,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Locale;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.List;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -233,11 +236,30 @@ public class CreateTableSpark {
           .forEach(m -> System.out.println("    " + m.properties().get("data-file-path")));
     }
 
+    // Count data files and row groups from table metadata (no file I/O; uses manifest data)
+    int actualDataFiles = 0;
+    int totalRowGroups = 0;
+    try (CloseableIterable<FileScanTask> tasks = table.newScan().planFiles()) {
+      for (FileScanTask task : tasks) {
+        actualDataFiles++;
+        DataFile file = task.file();
+        List<Long> offsets = file.splitOffsets();
+        if (offsets != null) {
+          totalRowGroups += offsets.size();
+        }
+      }
+    }
+    System.out.println("Table stats: " + actualDataFiles + " data files, " + totalRowGroups + " row groups");
+
+    // Assertions for validation (linters complain if we use assert statements)
+    if (totalRowGroups <= 0) { throw new IllegalStateException("Total row groups (" + totalRowGroups + ") is 0"); }
+    if (actualDataFiles != numDataFiles) { throw new IllegalStateException("Actual data files (" + actualDataFiles + ") != expected data files (" + numDataFiles + ")"); }
     WriteMetrics metrics = new WriteMetrics();
-    metrics.totalDataFiles = numDataFiles;
+    metrics.totalDataFiles = actualDataFiles;
+    metrics.totalRowGroups = totalRowGroups;
     metrics.puffinDiskSizeInBytes = result.statisticsFile().fileSizeInBytes();
     metrics.puffinFooterSizeInBytes = result.statisticsFile().fileFooterSizeInBytes();
-    // totalRowGroups, maxMemoryUsage, *Duration — not available from write path; leave null
+    // maxMemoryUsage, *Duration — not instrumented on write path; leave null
 
     exportWriteMetrics(metrics);
 
