@@ -171,6 +171,11 @@ class ScanMetricsResultParser {
       TimerResultParser.toJson(metrics.manifestReadDuration(), gen);
     }
 
+    if (null != metrics.bloomFilterSkippedDataFiles()) {
+      gen.writeFieldName(ScanMetrics.BLOOM_FILTER_SKIPPED_DATA_FILES);
+      CounterResultParser.toJson(metrics.bloomFilterSkippedDataFiles(), gen);
+    }
+
     gen.writeEndObject();
   }
 
@@ -221,6 +226,8 @@ class ScanMetricsResultParser {
         .puffinReadDuration(TimerResultParser.fromJson(ScanMetrics.PUFFIN_READ_DURATION, json))
         .manifestFilesRead(CounterResultParser.fromJson(ScanMetrics.MANIFEST_FILES_READ, json))
         .manifestReadDuration(TimerResultParser.fromJson(ScanMetrics.MANIFEST_READ_DURATION, json))
+        .bloomFilterSkippedDataFiles(
+            CounterResultParser.fromJson(ScanMetrics.BLOOM_FILTER_SKIPPED_DATA_FILES, json))
         .build();
   }
 }

@@ -50,6 +50,7 @@ import org.apache.iceberg.spark.source.metrics.ResultDataFiles;
 import org.apache.iceberg.spark.source.metrics.ResultDeleteFiles;
 import org.apache.iceberg.spark.source.metrics.ScannedDataManifests;
 import org.apache.iceberg.spark.source.metrics.ScannedDeleteManifests;
+import org.apache.iceberg.spark.source.metrics.BloomFilterSkippedDataFiles;
 import org.apache.iceberg.spark.source.metrics.SkippedDataFiles;
 import org.apache.iceberg.spark.source.metrics.SkippedDataManifests;
 import org.apache.iceberg.spark.source.metrics.SkippedDeleteFiles;
@@ -62,6 +63,7 @@ import org.apache.iceberg.spark.source.metrics.TaskResultDataFiles;
 import org.apache.iceberg.spark.source.metrics.TaskResultDeleteFiles;
 import org.apache.iceberg.spark.source.metrics.TaskScannedDataManifests;
 import org.apache.iceberg.spark.source.metrics.TaskScannedDeleteManifests;
+import org.apache.iceberg.spark.source.metrics.TaskBloomFilterSkippedDataFiles;
 import org.apache.iceberg.spark.source.metrics.TaskSkippedDataFiles;
 import org.apache.iceberg.spark.source.metrics.TaskSkippedDataManifests;
 import org.apache.iceberg.spark.source.metrics.TaskSkippedDeleteFiles;
@@ -300,6 +302,7 @@ abstract class SparkScan implements Scan, SupportsReportStatistics {
     // data files
     driverMetrics.add(TaskResultDataFiles.from(scanReport));
     driverMetrics.add(TaskSkippedDataFiles.from(scanReport));
+    driverMetrics.add(TaskBloomFilterSkippedDataFiles.from(scanReport));
     driverMetrics.add(TaskTotalDataFileSize.from(scanReport));
     driverMetrics.add(TaskTotalScanDataFiles.from(scanReport));
 
@@ -345,6 +348,7 @@ abstract class SparkScan implements Scan, SupportsReportStatistics {
       // data files
       new ResultDataFiles(),
       new SkippedDataFiles(),
+      new BloomFilterSkippedDataFiles(),
       new TotalDataFileSize(),
       new TotalScanDataFiles(),
 

@@ -119,13 +119,18 @@ public class CreateTableSpark {
     System.out.println("Created table: " + tableName);
     System.out.println("Bloom mode: " + bloomMode);
 
-    // Configuration for larger dataset with distinct ID ranges per file
+    // Configuration for dataset with INTERLEAVED IDs (overlapping ranges)
+    // This ensures min/max stats CANNOT prune files, but bloom filters CAN
     int numDataFiles = 10;
     int recordsPerFile = 100_000; // 100K rows per file = 1M total rows
     long totalRecords = (long) numDataFiles * recordsPerFile;
 
     System.out.println("Generating " + totalRecords + " records across " + numDataFiles + " files...");
-    System.out.println("Each file will have a distinct ID range for effective bloom filter pruning");
+    System.out.println("Using INTERLEAVED IDs so min/max stats cannot prune (bloom filters needed):");
+    System.out.println("  File 0: IDs 0, 10, 20, 30, ... (every 10th starting at 0)");
+    System.out.println("  File 1: IDs 1, 11, 21, 31, ... (every 10th starting at 1)");
+    System.out.println("  ... etc.");
+    System.out.println("  All files have overlapping ranges: min~=0, max~=999,999");
 
     StructType schema =
         DataTypes.createStructType(
@@ -135,16 +140,17 @@ public class CreateTableSpark {
               DataTypes.createStructField("created_at", DataTypes.TimestampType, true)
             });
 
-    // Write each file separately with distinct ID ranges
-    // File 0: IDs 1 to 100,000
-    // File 1: IDs 100,001 to 200,000
-    // etc.
+    // Write each file with INTERLEAVED IDs
+    // File 0: IDs 0, 10, 20, 30, ...  (i * numDataFiles + 0)
+    // File 1: IDs 1, 11, 21, 31, ...  (i * numDataFiles + 1)
+    // File N: IDs N, N+10, N+20, ...  (i * numDataFiles + N)
+    // Each file has min=fileNum, max=(recordsPerFile-1)*numDataFiles+fileNum
+    // All files have overlapping ranges, so min/max pruning won't work
+    // But each specific ID exists in exactly ONE file, so bloom filters can prune
     for (int fileNum = 0; fileNum < numDataFiles; fileNum++) {
-      long startId = (long) fileNum * recordsPerFile + 1;
-      long endId = startId + recordsPerFile;
-
       List<Row> rows = new ArrayList<>(recordsPerFile);
-      for (long id = startId; id < endId; id++) {
+      for (int i = 0; i < recordsPerFile; i++) {
+        long id = (long) i * numDataFiles + fileNum;
         rows.add(
             org.apache.spark.sql.RowFactory.create(
                 id,
@@ -158,12 +164,17 @@ public class CreateTableSpark {
       Dataset<Row> df = spark.createDataFrame(rows, schema);
       df.coalesce(1).writeTo(tableName).append();
 
+      long minId = fileNum;
+      long maxId = (long) (recordsPerFile - 1) * numDataFiles + fileNum;
       System.out.println(
-          "  File " + (fileNum + 1) + "/" + numDataFiles + ": IDs " + startId + " to " + (endId - 1));
+          "  File " + (fileNum + 1) + "/" + numDataFiles
+              + ": IDs " + minId + ", " + (minId + numDataFiles) + ", " + (minId + 2L * numDataFiles)
+              + ", ... (min=" + minId + ", max=" + maxId + ")");
     }
 
     System.out.println(
         "Wrote " + totalRecords + " records in " + numDataFiles + " data files");
+    System.out.println("NOTE: All files have overlapping ID ranges -> min/max pruning ineffective");
 
     Table table = Spark3Util.loadIcebergTable(spark, tableName);
     table.refresh();

@@ -57,8 +57,10 @@ import org.apache.iceberg.spark.Spark3Util;
 import org.apache.iceberg.spark.SparkReadConf;
 import org.apache.iceberg.spark.SparkSchemaUtil;
 import org.apache.iceberg.spark.SparkV2Filters;
+import org.apache.iceberg.spark.source.metrics.BloomFilterSkippedDataFiles;
 import org.apache.iceberg.spark.source.metrics.PuffinFilesRead;
 import org.apache.iceberg.spark.source.metrics.PuffinReadDuration;
+import org.apache.iceberg.spark.source.metrics.TaskBloomFilterSkippedDataFiles;
 import org.apache.iceberg.spark.source.metrics.TaskPuffinFilesRead;
 import org.apache.iceberg.spark.source.metrics.TaskPuffinReadDuration;
 import org.apache.iceberg.util.ContentFileUtil;
@@ -200,10 +202,12 @@ class SparkBatchQueryScan extends SparkPartitioningAwareScan<PartitionScanTask>
                         || evaluator.fileMightContain(task.asFileScanTask().file().location()))
             .collect(Collectors.toList());
 
-    if (filtered.size() < plannedTasks.size()) {
+    int skippedByBloomFilter = plannedTasks.size() - filtered.size();
+    if (skippedByBloomFilter > 0) {
+      puffinScanMetrics.bloomFilterSkippedDataFiles().increment(skippedByBloomFilter);
       LOG.info(
           "File bloom filter pruned {}/{} file(s) for table {}",
-          plannedTasks.size() - filtered.size(),
+          skippedByBloomFilter,
           plannedTasks.size(),
           table().name());
     }
@@ -354,6 +358,9 @@ class SparkBatchQueryScan extends SparkPartitioningAwareScan<PartitionScanTask>
     all.add(new TaskPuffinReadDuration(
         readDuration != null ? readDuration.totalDuration().toMillis() : -1L));
 
+    CounterResult bloomSkipped = puffinMetrics.bloomFilterSkippedDataFiles();
+    all.add(new TaskBloomFilterSkippedDataFiles(bloomSkipped != null ? bloomSkipped.value() : 0L));
+
     return all.toArray(new CustomTaskMetric[0]);
   }
 
@@ -363,6 +370,7 @@ class SparkBatchQueryScan extends SparkPartitioningAwareScan<PartitionScanTask>
     List<CustomMetric> all = Lists.newArrayList(base);
     all.add(new PuffinFilesRead());
     all.add(new PuffinReadDuration());
+    all.add(new BloomFilterSkippedDataFiles());
     return all.toArray(new CustomMetric[0]);
   }
 }

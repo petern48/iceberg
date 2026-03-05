@@ -50,6 +50,7 @@ public abstract class ScanMetrics {
   public static final String PUFFIN_READ_DURATION = "puffin-read-duration";
   public static final String MANIFEST_FILES_READ = "manifest-files-read";
   public static final String MANIFEST_READ_DURATION = "manifest-read-duration";
+  public static final String BLOOM_FILTER_SKIPPED_DATA_FILES = "bloom-filter-skipped-data-files";
 
   public static ScanMetrics noop() {
     return ScanMetrics.of(MetricsContext.nullMetrics());
@@ -187,6 +188,11 @@ public abstract class ScanMetrics {
   @Value.Derived
   public Timer manifestReadDuration() {
     return metricsContext().timer(MANIFEST_READ_DURATION, TimeUnit.NANOSECONDS);
+  }
+
+  @Value.Derived
+  public Counter bloomFilterSkippedDataFiles() {
+    return metricsContext().counter(BLOOM_FILTER_SKIPPED_DATA_FILES);
   }
 
   public static ScanMetrics of(MetricsContext metricsContext) {

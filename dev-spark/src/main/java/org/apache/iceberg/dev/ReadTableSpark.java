@@ -78,43 +78,51 @@ public class ReadTableSpark {
 
     System.out.println("Reading table: " + tableName);
     System.out.println();
-    System.out.println("Data layout: 10 files with 100K rows each");
-    System.out.println("  File 1: IDs 1-100,000");
-    System.out.println("  File 2: IDs 100,001-200,000");
-    System.out.println("  ... etc ...");
+    System.out.println("Data layout: 10 files with 100K rows each, INTERLEAVED IDs");
+    System.out.println("  File 0: IDs 0, 10, 20, 30, ... (every 10th starting at 0)");
+    System.out.println("  File 1: IDs 1, 11, 21, 31, ... (every 10th starting at 1)");
+    System.out.println("  ... etc.");
+    System.out.println("  All files have min~=0, max~=999,999 -> min/max CANNOT prune!");
+    System.out.println("  Each ID exists in exactly ONE file -> bloom filters CAN prune!");
+    System.out.println();
+    System.out.println("ID mapping: id % 10 = file number");
+    System.out.println("  id=50 -> file 0, id=51 -> file 1, id=55 -> file 5, etc.");
     System.out.println();
 
-    // Query 1: id = 50000 — exists in file 1 only; bloom filter should skip 9 files
+    // Query 1: id = 50 — exists in file 0 only (50 % 10 = 0)
+    // With bloom filter: skip 9 files. Without bloom filter: skip 0 files (min/max useless)
     MemoryTracker.Result mem1 =
         runQueryWithMemoryTracking(
             spark,
             tableName,
-            "id = 50000",
-            "value in file 1 (IDs 1-100K), expect 9 files skipped");
+            "id = 50",
+            "id=50 is in file 0 (50%10=0). Bloom: skip 9. No bloom: skip 0");
 
-    // Query 2: id = 9999999 — value doesn't exist; bloom filter should skip all 10 files
+    // Query 2: id = 9999999 — doesn't exist in any file
+    // With bloom filter: skip all 10. Without bloom: skip 0 (min/max sees all files match)
     MemoryTracker.Result mem2 =
         runQueryWithMemoryTracking(
             spark,
             tableName,
             "id = 9999999",
-            "value doesn't exist, expect all 10 files skipped");
+            "id=9999999 doesn't exist. Bloom: skip 10. No bloom: skip 0");
 
-    // Query 3: id IN (50000, 550000) — values in file 1 and file 6; expect 8 files skipped
+    // Query 3: id IN (50, 51, 55) — values in files 0, 1, and 5
+    // With bloom filter: skip 7 files. Without bloom: skip 0
     MemoryTracker.Result mem3 =
         runQueryWithMemoryTracking(
             spark,
             tableName,
-            "id IN (50000, 550000)",
-            "values in files 1 and 6, expect 8 files skipped");
+            "id IN (50, 51, 55)",
+            "ids in files 0,1,5. Bloom: skip 7. No bloom: skip 0");
 
-    // Query 4: id BETWEEN 150000 AND 150100 — range within file 2; expect 9 files skipped
+    // Query 4: id = 123456 — exists in file 6 (123456 % 10 = 6)
     MemoryTracker.Result mem4 =
         runQueryWithMemoryTracking(
             spark,
             tableName,
-            "id BETWEEN 150000 AND 150100",
-            "range in file 2 (IDs 100K-200K), expect 9 files skipped");
+            "id = 123456",
+            "id=123456 is in file 6. Bloom: skip 9. No bloom: skip 0");
 
     // Print memory summary
     System.out.println("=== Memory Summary ===");
@@ -201,7 +209,8 @@ public class ReadTableSpark {
     // Data file metrics
     printMetric(metrics, "totalScanDataFiles", "Total data files");
     printMetric(metrics, "resultDataFiles", "Result data files");
-    printMetric(metrics, "skippedDataFiles", "Skipped data files");
+    printMetric(metrics, "skippedDataFiles", "Skipped data files (min/max)");
+    printMetric(metrics, "bloomFilterSkippedDataFiles", "Skipped data files (bloom filter)");
     printMetric(metrics, "totalDataFileSize", "Total data file size (bytes)");
 
     // Row group metrics
