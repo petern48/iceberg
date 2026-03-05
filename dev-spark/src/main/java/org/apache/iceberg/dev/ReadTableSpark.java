@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -53,6 +54,17 @@ import org.apache.iceberg.dev.ReadMetrics;
 public class ReadTableSpark {
 
   private static final String DEFAULT_TABLE = "local.default.sample_table_spark";
+
+  /** Result of a query run with memory/duration tracking; includes the Dataset for scan metrics. */
+  private static class TrackedQueryResult {
+    final MemoryTracker.Result metrics;
+    final Dataset<Row> dataFrame;
+
+    TrackedQueryResult(MemoryTracker.Result metrics, Dataset<Row> dataFrame) {
+      this.metrics = metrics;
+      this.dataFrame = dataFrame;
+    }
+  }
 
   public static void main(String[] args) throws Exception {
     String tableName = args.length > 0 ? args[0] : DEFAULT_TABLE;
@@ -97,7 +109,7 @@ public class ReadTableSpark {
     // Query 1: id = 50 — exists in one file only (50 % numFiles)
     // With bloom filter: skip (numFiles-1) files. Without bloom filter: skip 0 files (min/max useless)
     int file50 = 50 % numFiles;
-    MemoryTracker.Result mem1 =
+    TrackedQueryResult t1 =
         runQueryWithMemoryTracking(
             spark,
             tableName,
@@ -106,7 +118,7 @@ public class ReadTableSpark {
 
     // Query 2: id = 9999999 — doesn't exist in any file
     // With bloom filter: skip all files. Without bloom: skip 0 (min/max sees all files match)
-    MemoryTracker.Result mem2 =
+    TrackedQueryResult t2 =
         runQueryWithMemoryTracking(
             spark,
             tableName,
@@ -121,7 +133,7 @@ public class ReadTableSpark {
     inFiles.add(file51);
     inFiles.add(file55);
     int skipIn = numFiles - inFiles.size();
-    MemoryTracker.Result mem3 =
+    TrackedQueryResult t3 =
         runQueryWithMemoryTracking(
             spark,
             tableName,
@@ -130,7 +142,7 @@ public class ReadTableSpark {
 
     // Query 4: id = 123456 — exists in one file
     int file123456 = 123456 % numFiles;
-    MemoryTracker.Result mem4 =
+    TrackedQueryResult t4 =
         runQueryWithMemoryTracking(
             spark,
             tableName,
@@ -139,23 +151,29 @@ public class ReadTableSpark {
 
     // Print memory summary
     System.out.println("=== Memory Summary ===");
-    System.out.println("  Query 1 (id = 50000): " + mem1);
-    System.out.println("  Query 2 (id = 9999999): " + mem2);
-    System.out.println("  Query 3 (id IN (50000, 550000)): " + mem3);
-    System.out.println("  Query 4 (id BETWEEN 150000 AND 150100): " + mem4);
+    System.out.println("  Query 1 (id = 50000): " + t1.metrics);
+    System.out.println("  Query 2 (id = 9999999): " + t2.metrics);
+    System.out.println("  Query 3 (id IN (50000, 550000)): " + t3.metrics);
+    System.out.println("  Query 4 (id BETWEEN 150000 AND 150100): " + t4.metrics);
     System.out.println();
 
-    // Export fake data .json data for development purposes
+    Map<String, Long> scanMetrics = getScanMetrics(t3.dataFrame);
     ReadMetrics metrics = new ReadMetrics();
-    metrics.skippedRowGroups = 10;
-    metrics.skippedDataFiles = 3;
-    metrics.maxMemoryUsage = (float) mem3.peakMemoryMB();
-    metrics.totalReadDuration = (float) mem3.durationMs();
-    metrics.puffinReadDuration = 12.3f;
-    metrics.manifestReadDuration = 5.7f;
-    metrics.datafileReadDuration = 20.1f;
+    metrics.skippedRowGroups = getIntMetric(scanMetrics, "skippedRowGroups");
+    metrics.skippedDataFiles = getIntMetric(scanMetrics, "skippedDataFiles");
+    metrics.totalRowGroups = getIntMetric(scanMetrics, "totalRowGroups");
+    metrics.totalScanDataFiles = getIntMetric(scanMetrics, "totalScanDataFiles");
+    metrics.resultDataFiles = getIntMetric(scanMetrics, "resultDataFiles");
+    metrics.totalDataFileSizeBytes = scanMetrics.get("totalDataFileSize");
+    metrics.puffinStatsFileSizeBytes = scanMetrics.get("puffinStatsFileSizeInBytes");
+    metrics.puffinStatsFooterSizeBytes = scanMetrics.get("puffinStatsFooterSizeInBytes");
+    metrics.maxMemoryUsage = (float) t3.metrics.peakMemoryMB();
+    metrics.totalReadDuration = (float) t3.metrics.durationMs();
+    // manifest/puffin/data read durations: set when real Spark metrics are collected
+    metrics.puffinReadDuration = null;
+    metrics.manifestReadDuration = null;
+    metrics.datafileReadDuration = null;
 
-    // ReadMetrics metrics = collectReadMetrics(lastDf);
     exportReadMetrics(metrics);
 
     spark.stop();
@@ -169,7 +187,7 @@ public class ReadTableSpark {
     System.out.println("Read Metrics exported to " + outputPath);
   }
 
-  private static MemoryTracker.Result runQueryWithMemoryTracking(
+  private static TrackedQueryResult runQueryWithMemoryTracking(
       SparkSession spark, String tableName, String predicate, String description) {
     System.out.println("=== Query: " + predicate + " ===");
     System.out.println("    " + description);
@@ -192,7 +210,40 @@ public class ReadTableSpark {
     printScanMetrics(df);
     System.out.println();
 
-    return memResult;
+    return new TrackedQueryResult(memResult, df);
+  }
+
+  /** Extracts Iceberg scan metric values from the executed plan of the given Dataset. */
+  private static Map<String, Long> getScanMetrics(Dataset<Row> df) {
+    Map<String, Long> out = new HashMap<>();
+    SparkPlan plan = df.queryExecution().executedPlan();
+    List<SparkPlan> leaves = seqAsJavaListConverter(plan.collectLeaves()).asJava();
+    if (leaves.isEmpty()) {
+      return out;
+    }
+    Map<String, SQLMetric> metrics = null;
+    for (SparkPlan leaf : leaves) {
+      Map<String, SQLMetric> m = mapAsJavaMapConverter(leaf.metrics()).asJava();
+      if (m.containsKey("totalDataFileSize") || m.containsKey("resultDataFiles")
+          || m.containsKey("totalRowGroups")) {
+        metrics = m;
+        break;
+      }
+    }
+    if (metrics == null) {
+      metrics = mapAsJavaMapConverter(leaves.get(0).metrics()).asJava();
+    }
+    for (Map.Entry<String, SQLMetric> e : metrics.entrySet()) {
+      if (e.getValue() != null) {
+        out.put(e.getKey(), (long) e.getValue().value());
+      }
+    }
+    return out;
+  }
+
+  private static Integer getIntMetric(Map<String, Long> scanMetrics, String name) {
+    Long v = scanMetrics.get(name);
+    return v != null ? v.intValue() : null;
   }
 
   private static void printScanMetrics(Dataset<Row> df) {

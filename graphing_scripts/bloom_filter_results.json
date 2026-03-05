@@ -7,43 +7,43 @@
     "no_bloom_filter": [
       {
         "total_row_groups": 0,
-        "skipped_row_groups": 10,
+        "skipped_row_groups": 0,
         "total_data_files": 10,
-        "skipped_data_files": 3
+        "skipped_data_files": 0
       },
       {
         "total_row_groups": 0,
-        "skipped_row_groups": 10,
+        "skipped_row_groups": 0,
         "total_data_files": 50,
-        "skipped_data_files": 3
+        "skipped_data_files": 0
       }
     ],
     "row_group_bloom_filter": [
       {
         "total_row_groups": 0,
-        "skipped_row_groups": 10,
+        "skipped_row_groups": 0,
         "total_data_files": 10,
-        "skipped_data_files": 3
+        "skipped_data_files": 0
       },
       {
         "total_row_groups": 0,
-        "skipped_row_groups": 10,
+        "skipped_row_groups": 0,
         "total_data_files": 50,
-        "skipped_data_files": 3
+        "skipped_data_files": 0
       }
     ],
     "file_level_bloom_filter": [
       {
         "total_row_groups": 0,
-        "skipped_row_groups": 10,
+        "skipped_row_groups": 0,
         "total_data_files": 10,
-        "skipped_data_files": 3
+        "skipped_data_files": 0
       },
       {
         "total_row_groups": 0,
-        "skipped_row_groups": 10,
+        "skipped_row_groups": 0,
         "total_data_files": 50,
-        "skipped_data_files": 3
+        "skipped_data_files": 0
       }
     ]
   },
@@ -81,16 +81,16 @@
   },
   "memory_read_mb": {
     "no_bloom_filter": [
-      131.04546,
-      499.46774
+      264.4174,
+      549.72046
     ],
     "row_group_bloom_filter": [
-      281.35812,
-      440.53394
+      201.82425,
+      447.65533
     ],
     "file_level_bloom_filter": [
-      131.98672,
-      609.0768
+      132.25475,
+      612.0763
     ]
   },
   "memory_write_mb": {
@@ -110,44 +110,44 @@
   "time_read_ms": {
     "no_bloom_filter": [
       {
-        "metadata_ms": 5700,
-        "puffin_ms": 12300,
-        "data_ms": 20100,
-        "total_ms": 217
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0,
+        "total_ms": 193
       },
       {
-        "metadata_ms": 5700,
-        "puffin_ms": 12300,
-        "data_ms": 20100,
-        "total_ms": 892
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0,
+        "total_ms": 1001
       }
     ],
     "row_group_bloom_filter": [
       {
-        "metadata_ms": 5700,
-        "puffin_ms": 12300,
-        "data_ms": 20100,
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0,
         "total_ms": 168
       },
       {
-        "metadata_ms": 5700,
-        "puffin_ms": 12300,
-        "data_ms": 20100,
-        "total_ms": 338
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0,
+        "total_ms": 309
       }
     ],
     "file_level_bloom_filter": [
       {
-        "metadata_ms": 5700,
-        "puffin_ms": 12300,
-        "data_ms": 20100,
-        "total_ms": 202
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0,
+        "total_ms": 201
       },
       {
-        "metadata_ms": 5700,
-        "puffin_ms": 12300,
-        "data_ms": 20100,
-        "total_ms": 374
+        "metadata_ms": 0,
+        "puffin_ms": 0,
+        "data_ms": 0,
+        "total_ms": 414
       }
     ]
   },
