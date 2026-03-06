@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.io.CloseableIterable;
@@ -42,6 +41,7 @@ import org.apache.iceberg.actions.ComputeTableStats;
 import org.apache.iceberg.spark.Spark3Util;
 import org.apache.iceberg.spark.actions.SparkActions;
 
+import org.apache.iceberg.dev.MemoryTracker;
 import org.apache.iceberg.dev.WriteMetrics;
 
 /**
@@ -227,11 +227,19 @@ public class CreateTableSpark {
             .sortWithinPartitions("id");
 
 
-    // Write the actual data to the table
-    df.drop("fileNum")
-        .writeTo(tableName)
-        .append();
-    // NOTE: this doesn't actually set the exact number of datafiles we specified any more after changing to purely a spark query
+    // Phase 1: data file write — single Spark job, no extra work
+    MemoryTracker.Result datafileResult =
+        MemoryTracker.track(
+            () -> {
+              try {
+                df.drop("fileNum").writeTo(tableName).append();
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+            });
+    float writeDataMaxMemory = (float) datafileResult.peakMemoryMB();
+    float writeDataDuration = (float) datafileResult.durationMs();
+    System.out.println("Data file write: " + datafileResult);
 
     System.out.println(
         "Wrote " + totalRecords + " records in " + numDataFiles + " data files");
@@ -240,8 +248,19 @@ public class CreateTableSpark {
     Table table = Spark3Util.loadIcebergTable(spark, tableName);
     table.refresh();
 
-    ComputeTableStats.Result result =
-        SparkActions.get().computeTableStats(table).columns("id", "data").execute();
+    // Phase 2: puffin file write (ComputeTableStats) — no extra work
+    MemoryTracker.TrackedResult<ComputeTableStats.Result> puffinTracked =
+        MemoryTracker.trackWithResult(
+            () ->
+                SparkActions.get()
+                    .computeTableStats(table)
+                    .columns("id", "data")
+                    .execute());
+    float writePuffinMaxMemory = (float) puffinTracked.metrics().peakMemoryMB();
+    float writePuffinDuration = (float) puffinTracked.metrics().durationMs();
+    System.out.println("Puffin write: " + puffinTracked.metrics());
+
+    ComputeTableStats.Result result = puffinTracked.value();
 
     long ndvBlobs = result.statisticsFile().blobMetadata().stream()
         .filter(m -> m.properties().containsKey("ndv"))
@@ -284,7 +303,12 @@ public class CreateTableSpark {
     metrics.totalRowGroups = totalRowGroups;
     metrics.puffinDiskSizeInBytes = result.statisticsFile().fileSizeInBytes();
     metrics.puffinFooterSizeInBytes = result.statisticsFile().fileFooterSizeInBytes();
-    // maxMemoryUsage, *Duration — not instrumented on write path; leave null
+    metrics.writeDataMaxMemory = writeDataMaxMemory;
+    metrics.writePuffinMaxMemory = writePuffinMaxMemory;
+    metrics.writeDataDuration = writeDataDuration;
+    metrics.writePuffinDuration = writePuffinDuration;
+    metrics.maxMemoryUsage =
+        Math.max(writeDataMaxMemory, writePuffinMaxMemory);
 
     exportWriteMetrics(metrics);
 
