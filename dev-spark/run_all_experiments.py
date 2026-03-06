@@ -105,7 +105,10 @@ def build_results(
                 "manifest_overhead_bytes": 0,
             })
             memory_read_mb[key].append(_n(r.get("maxMemoryUsage")))
-            memory_write_mb[key].append(_n(w.get("maxMemoryUsage")))
+            memory_write_mb[key].append({
+                "data_mb": _n(w.get("writeDataMaxMemory")),
+                "puffin_mb": _n(w.get("writePuffinMaxMemory")),
+            })
             # Read durations: totalReadDuration from ReadTableSpark is in ms; others may be sec
             total_read_ms = r.get("totalReadDuration")
             if total_read_ms is not None:

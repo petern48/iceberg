@@ -222,10 +222,11 @@ def plot_memory_read(data: dict, out_dir: str, display_inline: bool = False, ax=
 
 
 # ---------------------------------------------------------------------------
-# Chart 4: Memory Usage (Write)
+# Chart 4: Memory Usage (Write) – Write Memory Breakdown
 # ---------------------------------------------------------------------------
 def plot_memory_write(data: dict, out_dir: str, display_inline: bool = False, ax=None):
-    """Peak memory per bloom filter type."""
+    """Stacked bar: data write + puffin write memory, similar to write time breakdown.
+    Bottom = data write, top = puffin write. Color per bloom filter type."""
     sizes = data["dataset_sizes"]
     offsets, ticks, _ = group_positions(len(sizes), 3)
     bar_width = 0.22
@@ -233,12 +234,28 @@ def plot_memory_write(data: dict, out_dir: str, display_inline: bool = False, ax
     own_fig = ax is None
     if own_fig:
         fig, ax = plt.subplots(figsize=(10, 5))
+    legend_handles = []
 
     for i, (key, color) in enumerate(zip(BF_KEYS, BF_COLORS)):
-        values = np.array(data["memory_write_mb"][key], dtype=float)
-        ax.bar(offsets[i], values, bar_width, color=color)
+        rows = data["memory_write_mb"][key]
+        # Support both dict (data_mb, puffin_mb) and legacy float (total only)
+        def _get(v, k):
+            return v.get(k, 0) if isinstance(v, dict) else (v if k == "data_mb" else 0)
+        data_mb = np.array([_get(r, "data_mb") for r in rows], dtype=float)
+        puffin_mb = np.array([_get(r, "puffin_mb") for r in rows], dtype=float)
 
-    ax.legend(handles=bf_color_legend_handles(), title="Bloom Filter Type")
+        ax.bar(offsets[i], data_mb, bar_width, color=color)
+        ax.bar(offsets[i], puffin_mb, bar_width, bottom=data_mb,
+               color=color, alpha=STACK_ALPHA_LIGHT)
+        legend_handles.append(mpatches.Patch(color=color, label=BF_LABELS[key]))
+
+    data_patch = mpatches.Patch(facecolor="dimgray",                       label="Data write")
+    puffin_patch = mpatches.Patch(facecolor="dimgray", alpha=STACK_ALPHA_LIGHT, label="Puffin write")
+
+    color_legend = ax.legend(handles=legend_handles,         loc="upper left",   title="Bloom Filter Type")
+    ax.add_artist(color_legend)
+    ax.legend(         handles=[data_patch, puffin_patch], loc="upper center", title="Bar Segments")
+
     ax.set_xticks(ticks)
     ax.set_xticklabels(sizes)
     ax.set_xlabel("Dataset Size")
