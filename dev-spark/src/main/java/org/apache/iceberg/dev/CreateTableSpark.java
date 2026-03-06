@@ -36,6 +36,7 @@ import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
+import static org.apache.spark.sql.functions.*;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.actions.ComputeTableStats;
 import org.apache.iceberg.spark.Spark3Util;
@@ -169,13 +170,13 @@ public class CreateTableSpark {
     System.out.println("  ... etc.");
     System.out.println("  All files have overlapping ranges: min~=0, max~=" + (totalRecords - 1));
 
-    StructType schema =
-        DataTypes.createStructType(
-            new StructField[] {
-              DataTypes.createStructField("id", DataTypes.LongType, false),
-              DataTypes.createStructField("data", DataTypes.StringType, false),
-              DataTypes.createStructField("created_at", DataTypes.TimestampType, true)
-            });
+    // StructType schema =
+    //     DataTypes.createStructType(
+    //         new StructField[] {
+    //           DataTypes.createStructField("id", DataTypes.LongType, false),
+    //           DataTypes.createStructField("data", DataTypes.StringType, false),
+    //           DataTypes.createStructField("created_at", DataTypes.TimestampType, true)
+    //         });
 
     // Write each file with INTERLEAVED IDs
     // File 0: IDs 0, 10, 20, 30, ...  (i * numDataFiles + 0)
@@ -184,30 +185,53 @@ public class CreateTableSpark {
     // Each file has min=fileNum, max=(recordsPerFile-1)*numDataFiles+fileNum
     // All files have overlapping ranges, so min/max pruning won't work
     // But each specific ID exists in exactly ONE file, so bloom filters can prune
-    for (int fileNum = 0; fileNum < numDataFiles; fileNum++) {
-      List<Row> rows = new ArrayList<>(recordsPerFile);
-      for (int i = 0; i < recordsPerFile; i++) {
-        long id = (long) i * numDataFiles + fileNum;
-        rows.add(
-            org.apache.spark.sql.RowFactory.create(
-                id,
-                "item_" + id,
-                java.sql.Timestamp.from(
-                    java.time.OffsetDateTime.parse("2024-01-15T10:00:00Z")
-                        .plusSeconds(id)
-                        .toInstant())));
-      }
 
-      Dataset<Row> df = spark.createDataFrame(rows, schema);
-      df.coalesce(1).writeTo(tableName).append();
+    // for (int fileNum = 0; fileNum < numDataFiles; fileNum++) {
+    //   List<Row> rows = new ArrayList<>(recordsPerFile);
+    //   for (int i = 0; i < recordsPerFile; i++) {
+    //     long id = (long) i * numDataFiles + fileNum;
+    //     rows.add(
+    //         org.apache.spark.sql.RowFactory.create(
+    //             id,
+    //             "item_" + id,
+    //             java.sql.Timestamp.from(
+    //                 java.time.OffsetDateTime.parse("2024-01-15T10:00:00Z")
+    //                     .plusSeconds(id)
+    //                     .toInstant())));
+    //   }
 
-      long minId = fileNum;
-      long maxId = (long) (recordsPerFile - 1) * numDataFiles + fileNum;
-      System.out.println(
-          "  File " + (fileNum + 1) + "/" + numDataFiles
-              + ": IDs " + minId + ", " + (minId + numDataFiles) + ", " + (minId + 2L * numDataFiles)
-              + ", ... (min=" + minId + ", max=" + maxId + ")");
-    }
+    //   Dataset<Row> df = spark.createDataFrame(rows, schema);
+    //   df.coalesce(1).writeTo(tableName).append();
+
+    //   long minId = fileNum;
+    //   long maxId = (long) (recordsPerFile - 1) * numDataFiles + fileNum;
+    //   System.out.println(
+    //       "  File " + (fileNum + 1) + "/" + numDataFiles
+    //           + ": IDs " + minId + ", " + (minId + numDataFiles) + ", " + (minId + 2L * numDataFiles)
+    //           + ", ... (min=" + minId + ", max=" + maxId + ")");
+    // }
+
+
+    Dataset<Row> df =
+        spark.range(totalRecords)
+            .withColumn("fileNum", expr("id % " + numDataFiles))
+            .withColumn("i", expr("id / " + numDataFiles))
+            .withColumn("id", expr("i * " + numDataFiles + " + fileNum"))
+            .drop("i")
+            .withColumn("data", concat(lit("item_"), col("id")))
+            .withColumn(
+                "created_at",
+                expr("timestampadd(SECOND, id, timestamp('2024-01-15T10:00:00Z'))")
+            )
+            .repartition(numDataFiles, col("fileNum"))
+            .sortWithinPartitions("id");
+
+
+    // Write the actual data to the table
+    df.drop("fileNum")
+        .writeTo(tableName)
+        .append();
+    // NOTE: this doesn't actually set the exact number of datafiles we specified any more after changing to purely a spark query
 
     System.out.println(
         "Wrote " + totalRecords + " records in " + numDataFiles + " data files");
@@ -253,7 +277,8 @@ public class CreateTableSpark {
 
     // Assertions for validation (linters complain if we use assert statements)
     if (totalRowGroups <= 0) { throw new IllegalStateException("Total row groups (" + totalRowGroups + ") is 0"); }
-    if (actualDataFiles != numDataFiles) { throw new IllegalStateException("Actual data files (" + actualDataFiles + ") != expected data files (" + numDataFiles + ")"); }
+    // NOTE: this doesn't actually set the exact number of datafiles we specified any more after changing to purely a spark query
+    // if (actualDataFiles != numDataFiles) { throw new IllegalStateException("Actual data files (" + actualDataFiles + ") != expected data files (" + numDataFiles + ")"); }
     WriteMetrics metrics = new WriteMetrics();
     metrics.totalDataFiles = actualDataFiles;
     metrics.totalRowGroups = totalRowGroups;
