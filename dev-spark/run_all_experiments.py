@@ -119,10 +119,15 @@ def build_results(
             total_write_ms = w.get("totalWriteDuration")
             if total_write_ms is not None:
                 total_write_ms = round(sec_to_ms(total_write_ms))
+            # writeDataDuration and writePuffinDuration are in ms
+            data_ms = _n(w.get("writeDataDuration"))
+            puffin_ms = _n(w.get("writePuffinDuration"))
+            if total_write_ms is None and (data_ms > 0 or puffin_ms > 0):
+                total_write_ms = round(data_ms + puffin_ms)
             time_write_ms[key].append({
                 "metadata_ms": sec_to_ms(w.get("manifestWriteDuration")),
-                "puffin_ms": sec_to_ms(w.get("puffinWriteDuration")),
-                "data_ms": sec_to_ms(w.get("datafileWriteDuration")),
+                "puffin_ms": puffin_ms,
+                "data_ms": data_ms,
                 "total_ms": total_write_ms,
             })
 
@@ -175,7 +180,7 @@ def main() -> None:
         json.dump(results, f, indent=2)
 
     print(f"\nWrote {len(experiments)} experiment(s) to {OUTPUT_JSON}")
-    print("Run graphing scripts from repo root: python graphing_scripts/plot_all.py")
+    print("Run graphing scripts from repo root: python graphing_scripts/plot_all.ipynb")
 
 
 if __name__ == "__main__":
