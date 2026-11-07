@@ -23,11 +23,13 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.apache.iceberg.exceptions.CherrypickAncestorCommitException;
 import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.relocated.com.google.common.base.Preconditions;
+import org.apache.iceberg.relocated.com.google.common.collect.ImmutableSet;
 import org.apache.iceberg.relocated.com.google.common.collect.Iterables;
 import org.apache.iceberg.relocated.com.google.common.collect.Lists;
 import org.apache.iceberg.util.ParallelIterable;
@@ -44,6 +46,27 @@ import org.apache.iceberg.util.WapUtil;
  * Transaction API intended for use in {@link ManageSnapshots}.
  */
 class CherryPickOperation extends MergingSnapshotProducer<CherryPickOperation> {
+
+  // summary properties that are computed for the new snapshot or that identify the picked snapshot
+  private static final Set<String> GENERATED_SUMMARY_PREFIXES =
+      ImmutableSet.of(
+          "added-",
+          "deleted-",
+          "removed-",
+          "total-",
+          "manifests-",
+          SnapshotSummary.CHANGED_PARTITION_PREFIX);
+
+  private static final Set<String> GENERATED_SUMMARY_PROPERTIES =
+      ImmutableSet.of(
+          "iceberg-version",
+          SnapshotSummary.CHANGED_PARTITION_COUNT_PROP,
+          SnapshotSummary.PARTITION_SUMMARY_PROP,
+          SnapshotSummary.PROCESSED_MANIFEST_ENTRY_COUNT,
+          SnapshotSummary.STAGED_WAP_ID_PROP,
+          SnapshotSummary.PUBLISHED_WAP_ID_PROP,
+          SnapshotSummary.SOURCE_SNAPSHOT_ID_PROP,
+          SnapshotSummary.REPLACE_PARTITIONS_PROP);
 
   private Snapshot cherrypickSnapshot = null;
   private boolean requireFastForward = false;
@@ -85,6 +108,8 @@ class CherryPickOperation extends MergingSnapshotProducer<CherryPickOperation> {
       // link the snapshot about to be published on commit with the picked snapshot
       set(SnapshotSummary.SOURCE_SNAPSHOT_ID_PROP, String.valueOf(snapshotId));
 
+      copyCustomSummaryProperties(cherrypickSnapshot);
+
       // Pick modifications from the snapshot
       for (DataFile addedFile : changes.addedDataFiles()) {
         add(addedFile);
@@ -113,6 +138,8 @@ class CherryPickOperation extends MergingSnapshotProducer<CherryPickOperation> {
       // link the snapshot about to be published on commit with the picked snapshot
       set(SnapshotSummary.SOURCE_SNAPSHOT_ID_PROP, String.valueOf(snapshotId));
 
+      copyCustomSummaryProperties(cherrypickSnapshot);
+
       // check that all deleted files are still in the table
       failMissingDeletePaths();
 
@@ -138,6 +165,26 @@ class CherryPickOperation extends MergingSnapshotProducer<CherryPickOperation> {
     }
 
     return this;
+  }
+
+  private void copyCustomSummaryProperties(Snapshot snapshot) {
+    if (snapshot.summary() == null) {
+      return;
+    }
+
+    snapshot
+        .summary()
+        .forEach(
+            (key, value) -> {
+              if (!isGeneratedSummaryProperty(key)) {
+                set(key, value);
+              }
+            });
+  }
+
+  private static boolean isGeneratedSummaryProperty(String key) {
+    return GENERATED_SUMMARY_PREFIXES.stream().anyMatch(key::startsWith)
+        || GENERATED_SUMMARY_PROPERTIES.contains(key);
   }
 
   @Override

@@ -49,6 +49,42 @@ public class TestSnapshotManager extends TestBase {
           .build();
 
   @TestTemplate
+  public void cherryPickAppendKeepsCustomSummaryProperties() {
+    table.newAppend().appendFile(FILE_A).commit();
+    table
+        .newAppend()
+        .appendFile(FILE_B)
+        .set("min_ts", "10")
+        .set("max_ts", "20")
+        .stageOnly()
+        .commit();
+    Snapshot staged = Iterables.getLast(table.snapshots());
+    table.newAppend().appendFile(FILE_C).commit();
+
+    table.manageSnapshots().cherrypick(staged.snapshotId()).commit();
+
+    assertThat(table.currentSnapshot().summary())
+        .containsEntry("min_ts", "10")
+        .containsEntry("max_ts", "20")
+        .containsEntry(SnapshotSummary.SOURCE_SNAPSHOT_ID_PROP, String.valueOf(staged.snapshotId()))
+        .containsEntry(SnapshotSummary.TOTAL_DATA_FILES_PROP, "3");
+  }
+
+  @TestTemplate
+  public void cherryPickDynamicOverwriteKeepsCustomSummaryProperties() {
+    table.newAppend().appendFile(FILE_A).commit();
+    table.newReplacePartitions().addFile(FILE_B).set("min_ts", "10").stageOnly().commit();
+    Snapshot staged = Iterables.getLast(table.snapshots());
+    table.newAppend().appendFile(FILE_C).commit();
+
+    table.manageSnapshots().cherrypick(staged.snapshotId()).commit();
+
+    assertThat(table.currentSnapshot().summary())
+        .containsEntry("min_ts", "10")
+        .doesNotContainKey(SnapshotSummary.STAGED_WAP_ID_PROP);
+  }
+
+  @TestTemplate
   public void testCherryPickDynamicOverwrite() {
     table.newAppend().appendFile(FILE_A).commit();
 
